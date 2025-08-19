@@ -290,9 +290,17 @@ fn load_context() -> Result<Context> {
     Ok(ctx)
 }
 
+#[derive(Debug, Parser)]
+#[command(name = "cargo")]
+#[command(bin_name = "cargo")]
+#[command(version, propagate_version = true)]
+enum Cargo {
+    EmbassyDevtool(Args),
+}
+
 fn main() -> Result<()> {
     SimpleLogger::new().init().unwrap();
-    let args = Args::parse();
+    let Cargo::EmbassyDevtool(args) = Cargo::parse();
     let mut ctx = load_context()?;
 
     match args.command {
