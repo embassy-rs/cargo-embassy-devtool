@@ -207,12 +207,6 @@ impl CargoBatchBuilder {
         Self { commands: vec![] }
     }
 
-    #[must_use]
-    pub fn command(mut self, args: Vec<String>) -> Self {
-        self.commands.push(args);
-        self
-    }
-
     pub fn add_command(&mut self, args: Vec<String>) -> &mut Self {
         self.commands.push(args);
         self

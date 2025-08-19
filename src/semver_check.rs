@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
@@ -97,7 +98,7 @@ fn download_baseline(name: &str, version: &str) -> Result<PathBuf, anyhow::Error
     Ok(extract_path)
 }
 
-fn read_features(crate_path: &PathBuf) -> Result<HashSet<String>, anyhow::Error> {
+fn read_features(crate_path: &Path) -> Result<HashSet<String>, anyhow::Error> {
     let cargo_toml_path = crate_path.join("Cargo.toml");
 
     if !cargo_toml_path.exists() {
