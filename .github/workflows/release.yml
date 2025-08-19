@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify-version:
+    name: Verify tag matches Cargo.toml version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Extract version from Cargo.toml
+        id: cargo_version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+      - name: Compare versions
+        run: |
+          if [ "${{ steps.tag_version.outputs.VERSION }}" != "${{ steps.cargo_version.outputs.VERSION }}" ]; then
+            echo "Tag version (${{ steps.tag_version.outputs.VERSION }}) does not match Cargo.toml version (${{ steps.cargo_version.outputs.VERSION }})"
+            exit 1
+          fi
+          echo "Version check passed: ${{ steps.tag_version.outputs.VERSION }}"
+
+  build-release:
+    name: Build release binaries
+    needs: verify-version
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: cargo-embassy-devtool-linux-x86_64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: cargo-embassy-devtool-windows-x86_64.exe
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: cargo-embassy-devtool-macos-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: cargo-embassy-devtool-macos-aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Rename binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: mv target/${{ matrix.target }}/release/cargo-embassy-devtool ${{ matrix.name }}
+      - name: Rename binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: mv target/${{ matrix.target }}/release/cargo-embassy-devtool.exe ${{ matrix.name }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+
+  create-release:
+    name: Create GitHub release
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Extract version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ steps.tag_version.outputs.VERSION }}
+          files: |
+            artifacts/cargo-embassy-devtool-linux-x86_64/cargo-embassy-devtool-linux-x86_64
+            artifacts/cargo-embassy-devtool-windows-x86_64.exe/cargo-embassy-devtool-windows-x86_64.exe
+            artifacts/cargo-embassy-devtool-macos-x86_64/cargo-embassy-devtool-macos-x86_64
+            artifacts/cargo-embassy-devtool-macos-aarch64/cargo-embassy-devtool-macos-aarch64
+          draft: false
+          prerelease: false
