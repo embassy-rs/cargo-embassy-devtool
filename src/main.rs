@@ -129,7 +129,12 @@ fn update_versions(to_update: &Crate, dep: &CrateId, new_version: &str) -> Resul
 
     if changed {
         fs::write(&path, doc.to_string())?;
-        println!("🔧 Updated {} to {} in {}", dep, new_version, path.display());
+        println!(
+            "🔧 Updated {} to {} in {}",
+            dep,
+            new_version,
+            path.display()
+        );
     }
     Ok(())
 }
@@ -203,20 +208,23 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
     Ok(())
 }
 
-fn build_graph(crates: &BTreeMap<CrateId, Crate>) -> (Graph<CrateId, ()>, HashMap<CrateId, NodeIndex>) {
+fn build_graph(
+    crates: &BTreeMap<CrateId, Crate>,
+) -> (Graph<CrateId, ()>, HashMap<CrateId, NodeIndex>) {
     let mut graph = Graph::<CrateId, (), Directed>::new();
     let mut node_indices: HashMap<CrateId, NodeIndex> = HashMap::new();
 
     // Helper to insert or get existing node
-    let get_or_insert_node = |id: CrateId, graph: &mut Graph<CrateId, ()>, map: &mut HashMap<CrateId, NodeIndex>| {
-        if let Some(&idx) = map.get(&id) {
-            idx
-        } else {
-            let idx = graph.add_node(id.clone());
-            map.insert(id, idx);
-            idx
-        }
-    };
+    let get_or_insert_node =
+        |id: CrateId, graph: &mut Graph<CrateId, ()>, map: &mut HashMap<CrateId, NodeIndex>| {
+            if let Some(&idx) = map.get(&id) {
+                idx
+            } else {
+                let idx = graph.add_node(id.clone());
+                map.insert(id, idx);
+                idx
+            }
+        };
 
     for krate in crates.values() {
         get_or_insert_node(krate.name.clone(), &mut graph, &mut node_indices);
@@ -306,7 +314,10 @@ fn main() -> Result<()> {
             }
         }
         Command::Dependencies { crate_name } => {
-            let idx = ctx.indices.get(&crate_name).expect("unable to find crate in tree");
+            let idx = ctx
+                .indices
+                .get(&crate_name)
+                .expect("unable to find crate in tree");
             let mut bfs = Bfs::new(&ctx.graph, *idx);
             while let Some(node) = bfs.next(&ctx.graph) {
                 let weight = ctx.graph.node_weight(node).unwrap();
@@ -319,7 +330,10 @@ fn main() -> Result<()> {
             }
         }
         Command::Dependents { crate_name } => {
-            let idx = ctx.indices.get(&crate_name).expect("unable to find crate in tree");
+            let idx = ctx
+                .indices
+                .get(&crate_name)
+                .expect("unable to find crate in tree");
             let weight = ctx.graph.node_weight(*idx).unwrap();
             let crt = ctx.crates.get(weight).unwrap();
             println!("+ {}-{}", weight, crt.version);
@@ -335,18 +349,27 @@ fn main() -> Result<()> {
         Command::SemverCheck { crate_name } => {
             let c = ctx.crates.get(&crate_name).unwrap();
             if !c.publish {
-                bail!("Cannot run semver-check on non-publishable crate '{}'", crate_name);
+                bail!(
+                    "Cannot run semver-check on non-publishable crate '{}'",
+                    crate_name
+                );
             }
             check_semver(c)?;
         }
         Command::PrepareRelease { crate_name } => {
-            let start = ctx.indices.get(&crate_name).expect("unable to find crate in tree");
+            let start = ctx
+                .indices
+                .get(&crate_name)
+                .expect("unable to find crate in tree");
 
             // Check if the target crate is publishable
             let start_weight = ctx.graph.node_weight(*start).unwrap();
             let start_crate = ctx.crates.get(start_weight).unwrap();
             if !start_crate.publish {
-                bail!("Cannot prepare release for non-publishable crate '{}'", crate_name);
+                bail!(
+                    "Cannot prepare release for non-publishable crate '{}'",
+                    crate_name
+                );
             }
 
             let mut rgraph = ctx.graph.clone();
@@ -361,8 +384,12 @@ fn main() -> Result<()> {
                 if c.publish {
                     let ver = semver::Version::parse(&c.version)?;
                     let newver = match check_semver(c)? {
-                        ReleaseType::Major | ReleaseType::Minor => semver::Version::new(ver.major, ver.minor + 1, 0),
-                        ReleaseType::Patch => semver::Version::new(ver.major, ver.minor, ver.patch + 1),
+                        ReleaseType::Major | ReleaseType::Minor => {
+                            semver::Version::new(ver.major, ver.minor + 1, 0)
+                        }
+                        ReleaseType::Patch => {
+                            semver::Version::new(ver.major, ver.minor, ver.patch + 1)
+                        }
                         _ => unreachable!(),
                     };
 
@@ -456,7 +483,10 @@ fn update_changelog(repo: &Path, c: &Crate) -> Result<()> {
         "release".to_string(),
         "replace".to_string(),
         "--config".to_string(),
-        repo.join("release").join("release.toml").display().to_string(),
+        repo.join("release")
+            .join("release.toml")
+            .display()
+            .to_string(),
         "--manifest-path".to_string(),
         c.path.join("Cargo.toml").display().to_string(),
         "--execute".to_string(),

@@ -50,8 +50,16 @@ where
         .args(args)
         .current_dir(cwd)
         .envs(envs)
-        .stdout(if capture { Stdio::piped() } else { Stdio::inherit() })
-        .stderr(if capture { Stdio::piped() } else { Stdio::inherit() });
+        .stdout(if capture {
+            Stdio::piped()
+        } else {
+            Stdio::inherit()
+        })
+        .stderr(if capture {
+            Stdio::piped()
+        } else {
+            Stdio::inherit()
+        });
 
     if args.iter().any(|a| a.starts_with('+')) {
         // Make sure the right cargo runs
@@ -65,7 +73,10 @@ where
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        bail!("Failed to execute cargo subcommand `cargo {}`", args.join(" "),)
+        bail!(
+            "Failed to execute cargo subcommand `cargo {}`",
+            args.join(" "),
+        )
     }
 }
 
@@ -145,7 +156,8 @@ impl CargoArgsBuilder {
     where
         S: Into<String>,
     {
-        self.args.push(format!("--artifact-dir={}", artifact_dir.into()));
+        self.args
+            .push(format!("--artifact-dir={}", artifact_dir.into()));
         self
     }
 

@@ -24,7 +24,10 @@ pub(crate) fn build(ctx: &crate::Context, crate_name: Option<&str>) -> Result<()
             let mut args_builder = CargoArgsBuilder::new()
                 .subcommand("build")
                 .arg("--release")
-                .arg(format!("--manifest-path={}/Cargo.toml", krate.path.to_string_lossy()));
+                .arg(format!(
+                    "--manifest-path={}/Cargo.toml",
+                    krate.path.to_string_lossy()
+                ));
 
             if let Some(ref target) = config.target {
                 args_builder = args_builder.target(target);

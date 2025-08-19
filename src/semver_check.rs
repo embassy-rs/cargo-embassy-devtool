@@ -47,8 +47,8 @@ pub fn minimum_update(krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
     let mut min_required_update = ReleaseType::Patch;
     for report in result.crate_reports().values() {
         if let Some(required_bump) = report.required_bump() {
-            let required_is_stricter =
-                (min_required_update == ReleaseType::Patch) || (required_bump == ReleaseType::Major);
+            let required_is_stricter = (min_required_update == ReleaseType::Patch)
+                || (required_bump == ReleaseType::Major);
             if required_is_stricter {
                 min_required_update = required_bump;
             }
@@ -73,10 +73,11 @@ fn download_baseline(name: &str, version: &str) -> Result<PathBuf, anyhow::Error
         api: Some("https://crates.io".to_string()),
     };
 
-    let url =
-        config
-            .download_url(name, version)
-            .ok_or(anyhow!("unable to download baseline for {}-{}", name, version))?;
+    let url = config.download_url(name, version).ok_or(anyhow!(
+        "unable to download baseline for {}-{}",
+        name,
+        version
+    ))?;
 
     let parent_dir = env::var("RELEASER_CACHE").map_err(|_| anyhow!("RELEASER_CACHE not set"))?;
 
@@ -144,7 +145,11 @@ fn build_doc_json(krate: &Crate, config: &BuildConfig) -> Result<PathBuf, anyhow
     std::fs::remove_file(&current_path).ok();
     let features = config.features.clone();
 
-    log::info!("Building doc json for {} with features: {:?}", krate.name, features);
+    log::info!(
+        "Building doc json for {} with features: {:?}",
+        krate.name,
+        features
+    );
 
     let envs = vec![(
         "RUSTDOCFLAGS",
