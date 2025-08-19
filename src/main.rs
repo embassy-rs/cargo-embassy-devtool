@@ -357,7 +357,7 @@ fn main() -> Result<()> {
             while let Some(node) = bfs.next(&rgraph) {
                 let weight = rgraph.node_weight(node).unwrap();
                 println!("Preparing {}", weight);
-                let mut c = ctx.crates.get_mut(weight).unwrap();
+                let c = ctx.crates.get_mut(weight).unwrap();
                 if c.publish {
                     let ver = semver::Version::parse(&c.version)?;
                     let newver = match check_semver(c)? {
