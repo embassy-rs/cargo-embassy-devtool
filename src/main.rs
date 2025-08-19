@@ -107,7 +107,7 @@ fn update_versions(to_update: &Crate, dep: &CrateId, new_version: &str) -> Resul
     let mut changed = false;
     for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
         if let Some(Item::Table(dep_table)) = doc.get_mut(section) {
-            if let Some(item) = dep_table.get_mut(&dep) {
+            if let Some(item) = dep_table.get_mut(dep) {
                 match item {
                     // e.g., foo = "0.1.0"
                     Item::Value(Value::String(_)) => {
@@ -302,7 +302,7 @@ fn main() -> Result<()> {
                         println!("|- {}-{}", weight, c.version);
                     }
                 }
-                println!("");
+                println!();
             }
         }
         Command::Dependencies { crate_name } => {
@@ -337,7 +337,7 @@ fn main() -> Result<()> {
             if !c.publish {
                 bail!("Cannot run semver-check on non-publishable crate '{}'", crate_name);
             }
-            check_semver(&c)?;
+            check_semver(c)?;
         }
         Command::PrepareRelease { crate_name } => {
             let start = ctx.indices.get(&crate_name).expect("unable to find crate in tree");
@@ -360,16 +360,16 @@ fn main() -> Result<()> {
                 let mut c = ctx.crates.get_mut(weight).unwrap();
                 if c.publish {
                     let ver = semver::Version::parse(&c.version)?;
-                    let newver = match check_semver(&c)? {
+                    let newver = match check_semver(c)? {
                         ReleaseType::Major | ReleaseType::Minor => semver::Version::new(ver.major, ver.minor + 1, 0),
                         ReleaseType::Patch => semver::Version::new(ver.major, ver.minor, ver.patch + 1),
                         _ => unreachable!(),
                     };
 
-                    println!("Updating {} from {} -> {}", weight, c.version, newver.to_string());
+                    println!("Updating {} from {} -> {}", weight, c.version, newver);
                     let newver = newver.to_string();
 
-                    update_version(&mut c, &newver)?;
+                    update_version(c, &newver)?;
                     let c = ctx.crates.get(weight).unwrap();
 
                     // Update all nodes further down the tree
@@ -381,13 +381,13 @@ fn main() -> Result<()> {
                     }
 
                     // Update changelog
-                    update_changelog(&ctx.root, &c)?;
+                    update_changelog(&ctx.root, c)?;
                 }
             }
 
             let weight = rgraph.node_weight(*start).unwrap();
             let c = ctx.crates.get(weight).unwrap();
-            publish_release(&ctx.root, &c, false)?;
+            publish_release(&ctx.root, c, false)?;
 
             println!("# Please inspect changes and run the following commands when happy:");
 
@@ -401,7 +401,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            println!("");
+            println!();
             println!("# Run these commands to publish the crate and dependents:");
 
             let mut bfs = Bfs::new(&rgraph, *start);
@@ -437,7 +437,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            println!("");
+            println!();
             println!("# Run this command to push changes and tags:");
             println!("git push --tags");
         }
@@ -468,7 +468,7 @@ fn update_changelog(repo: &Path, c: &Crate) -> Result<()> {
     println!("{}", core::str::from_utf8(&status.stdout).unwrap());
     eprintln!("{}", core::str::from_utf8(&status.stderr).unwrap());
     if !status.status.success() {
-        return Err(anyhow!("release replace failed"));
+        Err(anyhow!("release replace failed"))
     } else {
         Ok(())
     }
@@ -502,7 +502,7 @@ fn publish_release(_repo: &Path, c: &Crate, push: bool) -> Result<()> {
     println!("{}", core::str::from_utf8(&status.stdout).unwrap());
     eprintln!("{}", core::str::from_utf8(&status.stderr).unwrap());
     if !status.status.success() {
-        return Err(anyhow!("publish failed"));
+        Err(anyhow!("publish failed"))
     } else {
         Ok(())
     }

@@ -21,7 +21,7 @@ pub fn minimum_update(krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
     baseline_krate.path = baseline_path;
 
     // Compare features as it's not covered by semver-checks
-    if compare_features(&baseline_krate, &krate)? {
+    if compare_features(&baseline_krate, krate)? {
         return Ok(ReleaseType::Minor);
     }
     let baseline_path = build_doc_json(&baseline_krate, config)?;
@@ -45,7 +45,7 @@ pub fn minimum_update(krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
     let result = semver_check.check_release(&mut cfg)?;
 
     let mut min_required_update = ReleaseType::Patch;
-    for (_, report) in result.crate_reports() {
+    for report in result.crate_reports().values() {
         if let Some(required_bump) = report.required_bump() {
             let required_is_stricter =
                 (min_required_update == ReleaseType::Patch) || (required_bump == ReleaseType::Major);
