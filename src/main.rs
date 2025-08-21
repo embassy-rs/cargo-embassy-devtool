@@ -13,25 +13,6 @@ use simple_logger::SimpleLogger;
 use toml_edit::{DocumentMut, Item, Value};
 use types::*;
 
-fn check_publish_dependencies(ctx: &Context) -> Result<()> {
-    for krate in ctx.crates.values() {
-        if krate.publish {
-            for dep_name in &krate.dependencies {
-                if let Some(dep_crate) = ctx.crates.get(dep_name) {
-                    if !dep_crate.publish {
-                        return Err(anyhow!(
-                            "Publishable crate '{}' depends on non-publishable crate '{}'. This is not allowed.",
-                            krate.name,
-                            dep_name
-                        ));
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 mod build;
 mod cargo;
 mod semver_check;
@@ -549,4 +530,23 @@ fn publish_release(_repo: &Path, c: &Crate, push: bool) -> Result<()> {
 /// Make the path "Windows"-safe
 pub fn windows_safe_path(path: &Path) -> PathBuf {
     PathBuf::from(path.to_str().unwrap().to_string().replace("\\\\?\\", ""))
+}
+
+fn check_publish_dependencies(ctx: &Context) -> Result<()> {
+    for krate in ctx.crates.values() {
+        if krate.publish {
+            for dep_name in &krate.dependencies {
+                if let Some(dep_crate) = ctx.crates.get(dep_name) {
+                    if !dep_crate.publish {
+                        return Err(anyhow!(
+                            "Publishable crate '{}' depends on non-publishable crate '{}'. This is not allowed.",
+                            krate.name,
+                            dep_name
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }

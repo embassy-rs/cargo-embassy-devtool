@@ -14,44 +14,46 @@ use crate::types::{BuildConfig, Crate};
 /// Return the minimum required bump for the next release.
 /// Even if nothing changed this will be [ReleaseType::Patch]
 pub fn minimum_update(krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
-    let config = krate.configs.first().unwrap(); // TODO
-
     let package_name = krate.name.clone();
     let baseline_path = download_baseline(&package_name, &krate.version)?;
     let mut baseline_krate = krate.clone();
-    baseline_krate.path = baseline_path;
+    baseline_krate.path = baseline_path.clone();
 
     // Compare features as it's not covered by semver-checks
     if compare_features(&baseline_krate, krate)? {
         return Ok(ReleaseType::Minor);
     }
-    let baseline_path = build_doc_json(&baseline_krate, config)?;
-    let current_path = build_doc_json(krate, config)?;
-
-    let baseline = Rustdoc::from_path(&baseline_path);
-    let doc = Rustdoc::from_path(&current_path);
-    let mut semver_check = Check::new(doc);
-    semver_check.with_default_features();
-    semver_check.set_baseline(baseline);
-    semver_check.set_packages(vec![package_name]);
-    let extra_current_features = config.features.clone();
-    let extra_baseline_features = config.features.clone();
-    semver_check.set_extra_features(extra_current_features, extra_baseline_features);
-    if let Some(target) = &config.target {
-        semver_check.set_build_target(target.clone());
-    }
-    let mut cfg = GlobalConfig::new();
-    cfg.set_log_level(Some(log::Level::Info));
-
-    let result = semver_check.check_release(&mut cfg)?;
 
     let mut min_required_update = ReleaseType::Patch;
-    for report in result.crate_reports().values() {
-        if let Some(required_bump) = report.required_bump() {
-            let required_is_stricter = (min_required_update == ReleaseType::Patch)
-                || (required_bump == ReleaseType::Major);
-            if required_is_stricter {
-                min_required_update = required_bump;
+    for config in krate.configs.iter() {
+        //        std::fs::remove_dir_all(baseline_path.join("target"))?;
+        let baseline_path = build_doc_json(&baseline_krate, config)?;
+        let current_path = build_doc_json(krate, config)?;
+
+        let baseline = Rustdoc::from_path(&baseline_path);
+        let doc = Rustdoc::from_path(&current_path);
+        let mut semver_check = Check::new(doc);
+        semver_check.with_default_features();
+        semver_check.set_baseline(baseline);
+        semver_check.set_packages(vec![package_name.clone()]);
+        let extra_current_features = config.features.clone();
+        let extra_baseline_features = config.features.clone();
+        semver_check.set_extra_features(extra_current_features, extra_baseline_features);
+        if let Some(target) = &config.target {
+            semver_check.set_build_target(target.clone());
+        }
+        let mut cfg = GlobalConfig::new();
+        cfg.set_log_level(Some(log::Level::Info));
+
+        let result = semver_check.check_release(&mut cfg)?;
+
+        for report in result.crate_reports().values() {
+            if let Some(required_bump) = report.required_bump() {
+                let required_is_stricter = (min_required_update == ReleaseType::Patch)
+                    || (required_bump == ReleaseType::Major);
+                if required_is_stricter {
+                    min_required_update = required_bump;
+                }
             }
         }
     }
