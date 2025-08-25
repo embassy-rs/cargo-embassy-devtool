@@ -27,8 +27,6 @@ fn default_publish() -> bool {
 pub struct Metadata {
     #[serde(default)]
     pub embassy: MetadataEmbassy,
-    #[serde(default)]
-    pub embassy_docs: MetadataEmbassyDocs,
 }
 
 #[allow(dead_code)]
@@ -38,14 +36,6 @@ pub struct MetadataEmbassy {
     pub skip: bool,
     #[serde(default)]
     pub build: Vec<BuildConfig>,
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Debug, Deserialize, Default)]
-pub struct MetadataEmbassyDocs {
-    #[serde(default)]
-    pub features: Vec<String>,
-    pub target: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,6 +56,5 @@ pub struct Crate {
     pub path: PathBuf,
     pub dependencies: Vec<CrateId>,
     pub configs: Vec<BuildConfig>,
-    pub docs: MetadataEmbassyDocs,
     pub publish: bool,
 }

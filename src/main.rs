@@ -143,7 +143,6 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
                     let id = parsed.package.name;
 
                     let metadata = &parsed.package.metadata.embassy;
-                    let metadata_docs = &parsed.package.metadata.embassy_docs;
 
                     if metadata.skip {
                         continue;
@@ -156,7 +155,6 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
                         }
                     }
 
-                    let docs = metadata_docs.clone();
                     let mut configs = metadata.build.clone();
                     if configs.is_empty() {
                         configs.push(BuildConfig {
@@ -174,7 +172,6 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
                             path,
                             dependencies,
                             configs,
-                            docs,
                             publish: parsed.package.publish,
                         },
                     );
@@ -497,19 +494,17 @@ fn update_changelog(repo: &Path, c: &Crate) -> Result<()> {
 }
 
 fn publish_release(_repo: &Path, c: &Crate, push: bool) -> Result<()> {
-    // Use the config with the must features!
+    let config = c.configs.first().unwrap();
     let mut args: Vec<String> = vec![
         "publish".to_string(),
         "--manifest-path".to_string(),
         c.path.join("Cargo.toml").display().to_string(),
     ];
 
-    if !c.docs.features.is_empty() {
-        args.push("--features".into());
-        args.push(c.docs.features.join(","));
-    }
+    args.push("--features".into());
+    args.push(config.features.join(","));
 
-    if let Some(target) = &c.docs.target {
+    if let Some(target) = &config.target {
         args.push("--target".into());
         args.push(target.clone());
     }
