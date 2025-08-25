@@ -65,11 +65,11 @@ fn compare_features(old: &Crate, new: &Crate) -> Result<bool, anyhow::Error> {
     let new = read_features(&new.path)?;
 
     old.retain(|r| !new.contains(r));
-    log::info!("Features removed in new: {:?}", old);
+    log::info!("Features removed in new: {old:?}");
     Ok(!old.is_empty())
 }
 
-fn download_baseline(root: &PathBuf, name: &str, version: &str) -> Result<PathBuf, anyhow::Error> {
+fn download_baseline(root: &Path, name: &str, version: &str) -> Result<PathBuf, anyhow::Error> {
     let config = crates_index::IndexConfig {
         dl: "https://crates.io/api/v1/crates".to_string(),
         api: Some("https://crates.io".to_string()),
@@ -83,7 +83,7 @@ fn download_baseline(root: &PathBuf, name: &str, version: &str) -> Result<PathBu
 
     let parent_dir = root.join("releaser");
     std::fs::create_dir_all(&parent_dir)?;
-    let extract_path = PathBuf::from(&parent_dir).join(format!("{}-{}", name, version));
+    let extract_path = PathBuf::from(&parent_dir).join(format!("{name}-{version}"));
 
     if extract_path.exists() {
         return Ok(extract_path);

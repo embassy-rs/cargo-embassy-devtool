@@ -368,7 +368,7 @@ fn main() -> Result<()> {
 
             while let Some(node) = bfs.next(&rgraph) {
                 let weight = rgraph.node_weight(node).unwrap();
-                println!("Preparing {}", weight);
+                println!("Preparing {weight}");
                 let c = ctx.crates.get_mut(weight).unwrap();
                 if c.publish {
                     let ver = semver::Version::parse(&c.version)?;
@@ -463,7 +463,7 @@ fn main() -> Result<()> {
 
 fn check_semver(root: PathBuf, c: &Crate) -> Result<ReleaseType> {
     let min_version = semver_check::minimum_update(root, c)?;
-    println!("Version should be bumped to {:?}", min_version);
+    println!("Version should be bumped to {min_version:?}");
     Ok(min_version)
 }
 
