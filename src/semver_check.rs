@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -13,9 +12,9 @@ use crate::types::{BuildConfig, Crate};
 
 /// Return the minimum required bump for the next release.
 /// Even if nothing changed this will be [ReleaseType::Patch]
-pub fn minimum_update(krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
+pub fn minimum_update(root: PathBuf, krate: &Crate) -> Result<ReleaseType, anyhow::Error> {
     let package_name = krate.name.clone();
-    let baseline_path = download_baseline(&package_name, &krate.version)?;
+    let baseline_path = download_baseline(&root, &package_name, &krate.version)?;
     let mut baseline_krate = krate.clone();
     baseline_krate.path = baseline_path.clone();
 
@@ -70,7 +69,7 @@ fn compare_features(old: &Crate, new: &Crate) -> Result<bool, anyhow::Error> {
     Ok(!old.is_empty())
 }
 
-fn download_baseline(name: &str, version: &str) -> Result<PathBuf, anyhow::Error> {
+fn download_baseline(root: &PathBuf, name: &str, version: &str) -> Result<PathBuf, anyhow::Error> {
     let config = crates_index::IndexConfig {
         dl: "https://crates.io/api/v1/crates".to_string(),
         api: Some("https://crates.io".to_string()),
@@ -82,8 +81,8 @@ fn download_baseline(name: &str, version: &str) -> Result<PathBuf, anyhow::Error
         version
     ))?;
 
-    let parent_dir = env::var("RELEASER_CACHE").map_err(|_| anyhow!("RELEASER_CACHE not set"))?;
-
+    let parent_dir = root.join("releaser");
+    std::fs::create_dir_all(parent_dir)?;
     let extract_path = PathBuf::from(&parent_dir).join(format!("{}-{}", name, version));
 
     if extract_path.exists() {

@@ -343,7 +343,7 @@ fn main() -> Result<()> {
                     crate_name
                 );
             }
-            check_semver(c)?;
+            check_semver(ctx.root.clone(), c)?;
         }
         Command::PrepareRelease { crate_name } => {
             let start = ctx
@@ -372,7 +372,7 @@ fn main() -> Result<()> {
                 let c = ctx.crates.get_mut(weight).unwrap();
                 if c.publish {
                     let ver = semver::Version::parse(&c.version)?;
-                    let newver = match check_semver(c)? {
+                    let newver = match check_semver(ctx.root.clone(), c)? {
                         ReleaseType::Major | ReleaseType::Minor => {
                             semver::Version::new(ver.major, ver.minor + 1, 0)
                         }
@@ -461,8 +461,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn check_semver(c: &Crate) -> Result<ReleaseType> {
-    let min_version = semver_check::minimum_update(c)?;
+fn check_semver(root: PathBuf, c: &Crate) -> Result<ReleaseType> {
+    let min_version = semver_check::minimum_update(root, c)?;
     println!("Version should be bumped to {:?}", min_version);
     Ok(min_version)
 }
@@ -494,7 +494,13 @@ fn update_changelog(repo: &Path, c: &Crate) -> Result<()> {
 }
 
 fn publish_release(_repo: &Path, c: &Crate, push: bool) -> Result<()> {
-    let config = c.configs.first().unwrap(); // TODO
+    // Use the config with the must features!
+    let mut config = c.configs.first().unwrap();
+    for c in c.configs.iter() {
+        if c.features.len() > config.features.len() {
+            config = c;
+        }
+    }
 
     let mut args: Vec<String> = vec![
         "publish".to_string(),
