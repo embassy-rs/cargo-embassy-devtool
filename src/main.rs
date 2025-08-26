@@ -63,7 +63,7 @@ enum Command {
     PrepareRelease {
         /// Crates to release. Will traverse that crate an it's dependents. If not specified checks all crates.
         /// Crates specified in this list must be diseparate in the dependency tree
-        #[arg(value_name = "CRATE")]
+        #[arg(value_name = "CRATES")]
         crate_names: Vec<String>,
     },
 }
@@ -156,6 +156,24 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
                         }
                     }
 
+                    let mut dev_dependencies = Vec::new();
+                    if let Some(deps) = parsed.dev_dependencies {
+                        for (k, _) in deps {
+                            if k.starts_with("embassy-") {
+                                dev_dependencies.push(k);
+                            }
+                        }
+                    }
+
+                    let mut build_dependencies = Vec::new();
+                    if let Some(deps) = parsed.build_dependencies {
+                        for (k, _) in deps {
+                            if k.starts_with("embassy-") {
+                                build_dependencies.push(k);
+                            }
+                        }
+                    }
+
                     let mut configs = metadata.build.clone();
                     if configs.is_empty() {
                         configs.push(BuildConfig {
@@ -172,6 +190,8 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
                             version: parsed.package.version,
                             path,
                             dependencies,
+                            dev_dependencies,
+                            build_dependencies,
                             configs,
                             publish: parsed.package.publish,
                         },
@@ -192,7 +212,8 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
 
 fn build_graph(
     crates: &BTreeMap<CrateId, Crate>,
-) -> (Graph<CrateId, ()>, HashMap<CrateId, NodeIndex>) {
+    select_deps: impl Fn(&Crate) -> &Vec<CrateId>,
+) -> GraphContext {
     let mut graph = Graph::<CrateId, (), Directed>::new();
     let mut node_indices: HashMap<CrateId, NodeIndex> = HashMap::new();
 
@@ -217,20 +238,30 @@ fn build_graph(
         let crate_idx = get_or_insert_node(krate.name.clone(), &mut graph, &mut node_indices);
 
         // Insert dependencies and connect edges
-        for dep in krate.dependencies.iter() {
+        for dep in select_deps(krate).iter() {
             let dep_idx = get_or_insert_node(dep.clone(), &mut graph, &mut node_indices);
             graph.add_edge(crate_idx, dep_idx, ());
         }
     }
 
-    (graph, node_indices)
+    graph.reverse();
+    GraphContext {
+        g: graph,
+        i: node_indices,
+    }
 }
 
 struct Context {
     root: PathBuf,
     crates: BTreeMap<String, Crate>,
-    graph: Graph<String, ()>,
-    indices: HashMap<String, NodeIndex>,
+    graph: GraphContext,
+    dev_graph: GraphContext,
+    build_graph: GraphContext,
+}
+
+struct GraphContext {
+    g: Graph<String, ()>,
+    i: HashMap<String, NodeIndex>,
 }
 
 fn find_repo_root() -> Result<PathBuf> {
@@ -257,13 +288,16 @@ fn find_repo_root() -> Result<PathBuf> {
 fn load_context() -> Result<Context> {
     let root = find_repo_root()?;
     let crates = list_crates(&root)?;
-    let (graph, indices) = build_graph(&crates);
+    let graph = build_graph(&crates, |c| &c.dependencies);
+    let dev_graph = build_graph(&crates, |c| &c.dev_dependencies);
+    let build_graph = build_graph(&crates, |c| &c.build_dependencies);
 
     let ctx = Context {
         root,
         crates,
         graph,
-        indices,
+        dev_graph,
+        build_graph,
     };
 
     // Check for publish dependency conflicts
@@ -287,12 +321,12 @@ fn main() -> Result<()> {
 
     match args.command {
         Command::List => {
-            let ordered = petgraph::algo::toposort(&ctx.graph, None).unwrap();
+            let ordered = petgraph::algo::toposort(&ctx.graph.g, None).unwrap();
             for node in ordered.iter() {
-                let start = ctx.graph.node_weight(*node).unwrap();
-                let mut bfs = Bfs::new(&ctx.graph, *node);
-                while let Some(node) = bfs.next(&ctx.graph) {
-                    let weight = ctx.graph.node_weight(node).unwrap();
+                let start = ctx.graph.g.node_weight(*node).unwrap();
+                let mut bfs = Bfs::new(&ctx.graph.g, *node);
+                while let Some(node) = bfs.next(&ctx.graph.g) {
+                    let weight = ctx.graph.g.node_weight(node).unwrap();
                     let c = ctx.crates.get(weight).unwrap();
                     if weight == start {
                         println!("+ {}-{}", weight, c.version);
@@ -305,12 +339,13 @@ fn main() -> Result<()> {
         }
         Command::Dependencies { crate_name } => {
             let idx = ctx
-                .indices
+                .graph
+                .i
                 .get(&crate_name)
                 .expect("unable to find crate in tree");
-            let mut bfs = Bfs::new(&ctx.graph, *idx);
-            while let Some(node) = bfs.next(&ctx.graph) {
-                let weight = ctx.graph.node_weight(node).unwrap();
+            let mut bfs = Bfs::new(&ctx.graph.g, *idx);
+            while let Some(node) = bfs.next(&ctx.graph.g) {
+                let weight = ctx.graph.g.node_weight(node).unwrap();
                 let crt = ctx.crates.get(weight).unwrap();
                 if *weight == crate_name {
                     println!("+ {}-{}", weight, crt.version);
@@ -321,14 +356,15 @@ fn main() -> Result<()> {
         }
         Command::Dependents { crate_name } => {
             let idx = ctx
-                .indices
+                .graph
+                .i
                 .get(&crate_name)
                 .expect("unable to find crate in tree");
-            let weight = ctx.graph.node_weight(*idx).unwrap();
+            let weight = ctx.graph.g.node_weight(*idx).unwrap();
             let crt = ctx.crates.get(weight).unwrap();
             println!("+ {}-{}", weight, crt.version);
-            for parent in ctx.graph.neighbors_directed(*idx, Direction::Incoming) {
-                let weight = ctx.graph.node_weight(parent).unwrap();
+            for parent in ctx.graph.g.neighbors_directed(*idx, Direction::Incoming) {
+                let weight = ctx.graph.g.node_weight(parent).unwrap();
                 let crt = ctx.crates.get(weight).unwrap();
                 println!("|- {}-{}", weight, crt.version);
             }
@@ -350,10 +386,11 @@ fn main() -> Result<()> {
             // Check if the target crates are publishable
             for crate_name in &crate_names {
                 let start = ctx
-                    .indices
+                    .graph
+                    .i
                     .get(crate_name)
                     .expect("unable to find crate in tree");
-                let start_weight = ctx.graph.node_weight(*start).unwrap();
+                let start_weight = ctx.graph.g.node_weight(*start).unwrap();
                 let start_crate = ctx.crates.get(start_weight).unwrap();
                 if !start_crate.publish {
                     bail!(
@@ -363,21 +400,19 @@ fn main() -> Result<()> {
                 }
             }
 
-            let mut rgraph = ctx.graph.clone();
-            rgraph.reverse();
-
             let mut to_bump = HashMap::new();
             // Do semver checks to figure out which versions to bump
             for crate_name in &crate_names {
                 if !to_bump.contains_key(crate_name) {
                     let start = ctx
-                        .indices
+                        .graph
+                        .i
                         .get(crate_name)
                         .expect("unable to find crate in tree");
 
-                    let mut bfs = Bfs::new(&rgraph, *start);
-                    while let Some(node) = bfs.next(&rgraph) {
-                        let weight = rgraph.node_weight(node).unwrap();
+                    let mut bfs = Bfs::new(&ctx.graph.g, *start);
+                    while let Some(node) = bfs.next(&ctx.graph.g) {
+                        let weight = ctx.graph.g.node_weight(node).unwrap();
                         println!("Preparing {weight}");
                         let c = ctx.crates.get(weight).unwrap();
                         if c.publish {
@@ -424,17 +459,9 @@ fn main() -> Result<()> {
                 let c = ctx.crates.get(name).unwrap();
 
                 // Update all nodes further down the tree
-                let node = ctx.indices.get(name).expect("unable to find crate in tree");
-                let mut bfs = Bfs::new(&rgraph, *node);
-                while let Some(dep_node) = bfs.next(&rgraph) {
-                    let dep_weight = rgraph.node_weight(dep_node).unwrap();
-                    println!(
-                        "Updating {}-{} -> {} for {}",
-                        c.name, oldver, newver, dep_weight
-                    );
-                    let dep = ctx.crates.get(dep_weight).unwrap();
-                    update_versions(dep, &c.name, &newver)?;
-                }
+                update_graph_deps(&ctx, &ctx.graph, name, &oldver, &newver)?;
+                update_graph_deps(&ctx, &ctx.build_graph, name, &oldver, &newver)?;
+                update_graph_deps(&ctx, &ctx.dev_graph, name, &oldver, &newver)?;
 
                 // Update changelog
                 update_changelog(&ctx.root, c)?;
@@ -443,19 +470,20 @@ fn main() -> Result<()> {
             let mut processed = HashSet::new();
             for crate_name in &crate_names {
                 let start = ctx
-                    .indices
+                    .graph
+                    .i
                     .get(crate_name)
                     .expect("unable to find crate in tree");
-                let weight = rgraph.node_weight(*start).unwrap();
+                let weight = ctx.graph.g.node_weight(*start).unwrap();
                 let c = ctx.crates.get(weight).unwrap();
                 publish_release(&ctx.root, c, false)?;
 
                 println!("# Please inspect changes and run the following commands when happy:");
 
                 println!("git commit -a -m 'chore: prepare crate releases'");
-                let mut bfs = Bfs::new(&rgraph, *start);
-                while let Some(node) = bfs.next(&rgraph) {
-                    let weight = rgraph.node_weight(node).unwrap();
+                let mut bfs = Bfs::new(&ctx.graph.g, *start);
+                while let Some(node) = bfs.next(&ctx.graph.g) {
+                    let weight = ctx.graph.g.node_weight(node).unwrap();
                     let c = ctx.crates.get(weight).unwrap();
                     if c.publish && !processed.contains(weight) {
                         println!("git tag {}-v{}", weight, c.version);
@@ -465,9 +493,9 @@ fn main() -> Result<()> {
                 println!();
                 println!("# Run these commands to publish the crate and dependents:");
 
-                let mut bfs = Bfs::new(&rgraph, *start);
-                while let Some(node) = bfs.next(&rgraph) {
-                    let weight = rgraph.node_weight(node).unwrap();
+                let mut bfs = Bfs::new(&ctx.graph.g, *start);
+                while let Some(node) = bfs.next(&ctx.graph.g) {
+                    let weight = ctx.graph.g.node_weight(node).unwrap();
 
                     if !processed.contains(weight) {
                         processed.insert(weight.clone());
@@ -515,6 +543,27 @@ fn check_semver(root: PathBuf, c: &Crate) -> Result<ReleaseType> {
     let min_version = semver_check::minimum_update(root, c)?;
     println!("Version should be bumped to {min_version:?}");
     Ok(min_version)
+}
+
+fn update_graph_deps(
+    ctx: &Context,
+    graph: &GraphContext,
+    name: &CrateId,
+    oldver: &str,
+    newver: &str,
+) -> Result<(), anyhow::Error> {
+    let node = graph.i.get(name).expect("unable to find crate in tree");
+    let mut bfs = Bfs::new(&graph.g, *node);
+    while let Some(dep_node) = bfs.next(&graph.g) {
+        let dep_weight = graph.g.node_weight(dep_node).unwrap();
+        println!(
+            "Updating {}-{} -> {} for {}",
+            name, oldver, newver, dep_weight
+        );
+        let dep = ctx.crates.get(dep_weight).unwrap();
+        update_versions(dep, name, newver)?;
+    }
+    Ok(())
 }
 
 fn update_changelog(repo: &Path, c: &Crate) -> Result<()> {

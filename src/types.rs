@@ -7,6 +7,8 @@ use serde::Deserialize;
 pub struct ParsedCrate {
     pub package: ParsedPackage,
     pub dependencies: BTreeMap<String, toml::Value>,
+    pub build_dependencies: Option<BTreeMap<String, toml::Value>>,
+    pub dev_dependencies: Option<BTreeMap<String, toml::Value>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,6 +57,8 @@ pub struct Crate {
     pub version: String,
     pub path: PathBuf,
     pub dependencies: Vec<CrateId>,
+    pub build_dependencies: Vec<CrateId>,
+    pub dev_dependencies: Vec<CrateId>,
     pub configs: Vec<BuildConfig>,
     pub publish: bool,
 }
