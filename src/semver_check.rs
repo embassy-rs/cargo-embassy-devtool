@@ -81,7 +81,7 @@ fn download_baseline(root: &Path, name: &str, version: &str) -> Result<PathBuf, 
         version
     ))?;
 
-    let parent_dir = root.join("releaser");
+    let parent_dir = root.join("releaser").join("target");
     std::fs::create_dir_all(&parent_dir)?;
     let extract_path = PathBuf::from(&parent_dir).join(format!("{name}-{version}"));
 
