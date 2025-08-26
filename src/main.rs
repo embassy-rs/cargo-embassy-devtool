@@ -497,7 +497,7 @@ fn main() -> Result<()> {
                 update_changelog(&ctx.root, c)?;
             }
 
-            let mut processed = HashSet::new();
+            // Test publish
             for crate_name in &crate_names {
                 let start = ctx
                     .graph
@@ -507,22 +507,39 @@ fn main() -> Result<()> {
                 let weight = ctx.graph.g.node_weight(*start).unwrap();
                 let c = ctx.crates.get(weight).unwrap();
                 publish_release(&ctx.root, c, false)?;
+            }
 
-                println!("# Please inspect changes and run the following commands when happy:");
+            println!("# Please inspect changes and run the following commands when happy:");
+            println!("git commit -a -m 'chore: prepare crate releases'");
+            println!();
 
-                println!("git commit -a -m 'chore: prepare crate releases'");
+            let mut processed = HashSet::new();
+            for crate_name in &crate_names {
+                let start = ctx
+                    .graph
+                    .i
+                    .get(crate_name)
+                    .expect("unable to find crate in tree");
                 let mut bfs = Bfs::new(&ctx.graph.g, *start);
                 while let Some(node) = bfs.next(&ctx.graph.g) {
                     let weight = ctx.graph.g.node_weight(node).unwrap();
                     let c = ctx.crates.get(weight).unwrap();
                     if c.publish && !processed.contains(weight) {
+                        processed.insert(weight.clone());
                         println!("git tag {}-v{}", weight, c.version);
                     }
                 }
+            }
 
-                println!();
-                println!("# Run these commands to publish the crate and dependents:");
-
+            let mut processed = HashSet::new();
+            println!();
+            println!("# Run these commands to publish the crate and dependents:");
+            for crate_name in &crate_names {
+                let start = ctx
+                    .graph
+                    .i
+                    .get(crate_name)
+                    .expect("unable to find crate in tree");
                 let mut bfs = Bfs::new(&ctx.graph.g, *start);
                 while let Some(node) = bfs.next(&ctx.graph.g) {
                     let weight = ctx.graph.g.node_weight(node).unwrap();
@@ -559,11 +576,11 @@ fn main() -> Result<()> {
                         }
                     }
                 }
-
-                println!();
-                println!("# Run this command to push changes and tags:");
-                println!("git push --tags");
             }
+
+            println!();
+            println!("# Run this command to push changes and tags:");
+            println!("git push --tags");
         }
     }
     Ok(())
