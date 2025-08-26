@@ -43,6 +43,17 @@ enum Command {
         #[arg(value_name = "CRATE")]
         crate_name: String,
     },
+    /// Force set a dependency to a version.
+    ///
+    /// Can be used to override result of prepare release
+    SetVersion {
+        /// Crate name to print dependencies for.
+        #[arg(value_name = "CRATE")]
+        crate_name: String,
+
+        #[arg(value_name = "CRATE_VERSION")]
+        crate_version: String,
+    },
 
     /// Build
     Build {
@@ -371,6 +382,25 @@ fn main() -> Result<()> {
         }
         Command::Build { crate_name } => {
             build::build(&ctx, crate_name.as_deref())?;
+        }
+        Command::SetVersion {
+            crate_name,
+            crate_version,
+        } => {
+            let newver = crate_version;
+            let name = &crate_name;
+            let c = ctx.crates.get_mut(name).unwrap();
+            let oldver = c.version.clone();
+            update_version(c, &newver)?;
+
+            let c = ctx.crates.get(name).unwrap();
+            // Update all nodes further down the tree
+            update_graph_deps(&ctx, &ctx.graph, name, &oldver, &newver)?;
+            update_graph_deps(&ctx, &ctx.build_graph, name, &oldver, &newver)?;
+            update_graph_deps(&ctx, &ctx.dev_graph, name, &oldver, &newver)?;
+
+            // Update changelog
+            update_changelog(&ctx.root, c)?;
         }
         Command::SemverCheck { crate_name } => {
             let c = ctx.crates.get(&crate_name).unwrap();
