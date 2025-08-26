@@ -7,7 +7,9 @@ use serde::Deserialize;
 pub struct ParsedCrate {
     pub package: ParsedPackage,
     pub dependencies: BTreeMap<String, toml::Value>,
+    #[serde(rename = "build-dependencies")]
     pub build_dependencies: Option<BTreeMap<String, toml::Value>>,
+    #[serde(rename = "dev-dependencies")]
     pub dev_dependencies: Option<BTreeMap<String, toml::Value>>,
 }
 
