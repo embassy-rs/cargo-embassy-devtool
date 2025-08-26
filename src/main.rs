@@ -139,82 +139,76 @@ fn list_crates(root: &PathBuf) -> Result<BTreeMap<CrateId, Crate>> {
 }
 
 fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Result<()> {
-    let d = std::fs::read_dir(dir)?;
-    for c in d {
-        let entry = c?;
-        if entry.file_type()?.is_dir() {
-            let path = dir.join(entry.path());
-            let cargo_toml = path.join("Cargo.toml");
+    let wd = walkdir::WalkDir::new(dir);
+    for entry in wd
+        .into_iter()
+        .filter_entry(|e| e.file_type().is_dir() && !e.file_name().eq_ignore_ascii_case("target"))
+    {
+        let entry = entry?;
+        let path = dir.join(entry.path());
+        let cargo_toml = path.join("Cargo.toml");
 
-            if cargo_toml.exists() {
-                let content = fs::read_to_string(&cargo_toml)?;
+        if cargo_toml.exists() {
+            let content = fs::read_to_string(&cargo_toml)?;
 
-                // Try to parse as a crate, skip if it's a workspace
-                let parsed: Result<ParsedCrate, _> = toml::from_str(&content);
-                if let Ok(parsed) = parsed {
-                    let id = parsed.package.name;
+            // Try to parse as a crate, skip if it's a workspace
+            let parsed: Result<ParsedCrate, _> = toml::from_str(&content);
+            if let Ok(parsed) = parsed {
+                let id = parsed.package.name;
 
-                    let metadata = &parsed.package.metadata.embassy;
+                let metadata = &parsed.package.metadata.embassy;
 
-                    if metadata.skip {
-                        continue;
+                if metadata.skip {
+                    continue;
+                }
+
+                let mut dependencies = Vec::new();
+                for (k, _) in parsed.dependencies {
+                    if k.starts_with("embassy-") {
+                        dependencies.push(k);
                     }
+                }
 
-                    let mut dependencies = Vec::new();
-                    for (k, _) in parsed.dependencies {
+                let mut dev_dependencies = Vec::new();
+                if let Some(deps) = parsed.dev_dependencies {
+                    for (k, _) in deps {
                         if k.starts_with("embassy-") {
-                            dependencies.push(k);
+                            dev_dependencies.push(k);
                         }
                     }
-
-                    let mut dev_dependencies = Vec::new();
-                    if let Some(deps) = parsed.dev_dependencies {
-                        for (k, _) in deps {
-                            if k.starts_with("embassy-") {
-                                dev_dependencies.push(k);
-                            }
-                        }
-                    }
-
-                    let mut build_dependencies = Vec::new();
-                    if let Some(deps) = parsed.build_dependencies {
-                        for (k, _) in deps {
-                            if k.starts_with("embassy-") {
-                                build_dependencies.push(k);
-                            }
-                        }
-                    }
-
-                    let mut configs = metadata.build.clone();
-                    if configs.is_empty() {
-                        configs.push(BuildConfig {
-                            features: vec![],
-                            target: None,
-                            artifact_dir: None,
-                        })
-                    }
-
-                    crates.insert(
-                        id.clone(),
-                        Crate {
-                            name: id,
-                            version: parsed.package.version,
-                            path,
-                            dependencies,
-                            dev_dependencies,
-                            build_dependencies,
-                            configs,
-                            publish: parsed.package.publish,
-                        },
-                    );
                 }
-            } else {
-                // Recursively search subdirectories, but only for examples, tests, and docs
-                let file_name = entry.file_name();
-                let dir_name = file_name.to_string_lossy();
-                if dir_name == "examples" || dir_name == "tests" || dir_name == "docs" {
-                    discover_crates(&path, crates)?;
+
+                let mut build_dependencies = Vec::new();
+                if let Some(deps) = parsed.build_dependencies {
+                    for (k, _) in deps {
+                        if k.starts_with("embassy-") {
+                            build_dependencies.push(k);
+                        }
+                    }
                 }
+
+                let mut configs = metadata.build.clone();
+                if configs.is_empty() {
+                    configs.push(BuildConfig {
+                        features: vec![],
+                        target: None,
+                        artifact_dir: None,
+                    })
+                }
+
+                crates.insert(
+                    id.clone(),
+                    Crate {
+                        name: id,
+                        version: parsed.package.version,
+                        path,
+                        dependencies,
+                        dev_dependencies,
+                        build_dependencies,
+                        configs,
+                        publish: parsed.package.publish,
+                    },
+                );
             }
         }
     }
