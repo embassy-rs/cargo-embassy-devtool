@@ -445,7 +445,7 @@ fn main() -> Result<()> {
                         let weight = ctx.graph.g.node_weight(node).unwrap();
                         println!("Preparing {weight}");
                         let c = ctx.crates.get(weight).unwrap();
-                        if c.publish {
+                        if c.publish && !to_bump.contains_key(weight) {
                             let ver = semver::Version::parse(&c.version)?;
                             let (rtype, newver) = match check_semver(ctx.root.clone(), c)? {
                                 ReleaseType::Major | ReleaseType::Minor => (
@@ -461,21 +461,7 @@ fn main() -> Result<()> {
 
                             println!("Updating {} from {} -> {}", weight, c.version, newver);
                             let newver = newver.to_string();
-
-                            match to_bump.get(&c.name) {
-                                // We already bumped the minor version, don't do it again.
-                                Some((ReleaseType::Minor, _)) => {
-                                    println!("Minor version already bumped, skipping");
-                                }
-                                // No reason to bump patch twice
-                                Some((ReleaseType::Patch, _)) if rtype == ReleaseType::Patch => {
-                                    println!("Patch version already bumped, skipping");
-                                }
-                                // Do the bump as required
-                                _ => {
-                                    to_bump.insert(c.name.clone(), (rtype, newver.clone()));
-                                }
-                            }
+                            to_bump.insert(c.name.clone(), (rtype, newver.clone()));
                         }
                     }
                 }
