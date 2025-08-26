@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
@@ -56,14 +56,15 @@ enum Command {
         #[arg(value_name = "CRATE")]
         crate_name: String,
     },
-    /// Prepare to release a crate and all dependents that needs updating
+    /// Prepare to release crates and all dependents that needs updating
     /// - Semver checks
     /// - Bump versions and commit
     /// - Create tag.
     PrepareRelease {
-        /// Crate to release. Will traverse that crate an it's dependents. If not specified checks all crates.
+        /// Crates to release. Will traverse that crate an it's dependents. If not specified checks all crates.
+        /// Crates specified in this list must be diseparate in the dependency tree
         #[arg(value_name = "CRATE")]
-        crate_name: String,
+        crate_names: Vec<String>,
     },
 }
 
@@ -345,117 +346,159 @@ fn main() -> Result<()> {
             }
             check_semver(ctx.root.clone(), c)?;
         }
-        Command::PrepareRelease { crate_name } => {
-            let start = ctx
-                .indices
-                .get(&crate_name)
-                .expect("unable to find crate in tree");
-
-            // Check if the target crate is publishable
-            let start_weight = ctx.graph.node_weight(*start).unwrap();
-            let start_crate = ctx.crates.get(start_weight).unwrap();
-            if !start_crate.publish {
-                bail!(
-                    "Cannot prepare release for non-publishable crate '{}'",
-                    crate_name
-                );
+        Command::PrepareRelease { crate_names } => {
+            // Check if the target crates are publishable
+            for crate_name in &crate_names {
+                let start = ctx
+                    .indices
+                    .get(crate_name)
+                    .expect("unable to find crate in tree");
+                let start_weight = ctx.graph.node_weight(*start).unwrap();
+                let start_crate = ctx.crates.get(start_weight).unwrap();
+                if !start_crate.publish {
+                    bail!(
+                        "Cannot prepare release for non-publishable crate '{}'",
+                        crate_name
+                    );
+                }
             }
 
             let mut rgraph = ctx.graph.clone();
             rgraph.reverse();
 
-            let mut bfs = Bfs::new(&rgraph, *start);
+            let mut bumped = HashMap::new();
+            for crate_name in &crate_names {
+                if !bumped.contains_key(crate_name) {
+                    let start = ctx
+                        .indices
+                        .get(crate_name)
+                        .expect("unable to find crate in tree");
 
-            while let Some(node) = bfs.next(&rgraph) {
-                let weight = rgraph.node_weight(node).unwrap();
-                println!("Preparing {weight}");
-                let c = ctx.crates.get_mut(weight).unwrap();
-                if c.publish {
-                    let ver = semver::Version::parse(&c.version)?;
-                    let newver = match check_semver(ctx.root.clone(), c)? {
-                        ReleaseType::Major | ReleaseType::Minor => {
-                            semver::Version::new(ver.major, ver.minor + 1, 0)
+                    let mut bfs = Bfs::new(&rgraph, *start);
+                    while let Some(node) = bfs.next(&rgraph) {
+                        let weight = rgraph.node_weight(node).unwrap();
+                        println!("Preparing {weight}");
+                        let c = ctx.crates.get_mut(weight).unwrap();
+                        if c.publish {
+                            let ver = semver::Version::parse(&c.version)?;
+                            let (rtype, newver) = match check_semver(ctx.root.clone(), c)? {
+                                ReleaseType::Major | ReleaseType::Minor => (
+                                    ReleaseType::Minor,
+                                    semver::Version::new(ver.major, ver.minor + 1, 0),
+                                ),
+                                ReleaseType::Patch => (
+                                    ReleaseType::Patch,
+                                    semver::Version::new(ver.major, ver.minor, ver.patch + 1),
+                                ),
+                                _ => unreachable!(),
+                            };
+
+                            let oldver = c.version.clone();
+                            println!("Updating {} from {} -> {}", weight, c.version, newver);
+                            let newver = newver.to_string();
+
+                            match bumped.get(&c.name) {
+                                // We already bumped the minor version, don't do it again.
+                                Some(ReleaseType::Minor) => {
+                                    println!("Minor version already bumped, skipping");
+                                }
+                                // No reason to bump patch twice
+                                Some(ReleaseType::Patch) if rtype == ReleaseType::Patch => {
+                                    println!("Patch version already bumped, skipping");
+                                }
+                                // Do the bump as required
+                                _ => {
+                                    bumped.insert(c.name.clone(), rtype);
+                                    update_version(c, &newver)?;
+                                    let c = ctx.crates.get(weight).unwrap();
+
+                                    // Update all nodes further down the tree
+                                    let mut bfs = Bfs::new(&rgraph, node);
+                                    while let Some(dep_node) = bfs.next(&rgraph) {
+                                        let dep_weight = rgraph.node_weight(dep_node).unwrap();
+                                        println!(
+                                            "Updating {}-{} -> {} for {}",
+                                            c.name, oldver, newver, dep_weight
+                                        );
+                                        let dep = ctx.crates.get(dep_weight).unwrap();
+                                        update_versions(dep, &c.name, &newver)?;
+                                    }
+
+                                    // Update changelog
+                                    update_changelog(&ctx.root, c)?;
+                                }
+                            }
                         }
-                        ReleaseType::Patch => {
-                            semver::Version::new(ver.major, ver.minor, ver.patch + 1)
-                        }
-                        _ => unreachable!(),
-                    };
-
-                    println!("Updating {} from {} -> {}", weight, c.version, newver);
-                    let newver = newver.to_string();
-
-                    update_version(c, &newver)?;
-                    let c = ctx.crates.get(weight).unwrap();
-
-                    // Update all nodes further down the tree
-                    let mut bfs = Bfs::new(&rgraph, node);
-                    while let Some(dep_node) = bfs.next(&rgraph) {
-                        let dep_weight = rgraph.node_weight(dep_node).unwrap();
-                        let dep = ctx.crates.get(dep_weight).unwrap();
-                        update_versions(dep, &c.name, &newver)?;
                     }
-
-                    // Update changelog
-                    update_changelog(&ctx.root, c)?;
                 }
             }
 
-            let weight = rgraph.node_weight(*start).unwrap();
-            let c = ctx.crates.get(weight).unwrap();
-            publish_release(&ctx.root, c, false)?;
-
-            println!("# Please inspect changes and run the following commands when happy:");
-
-            println!("git commit -a -m 'chore: prepare crate releases'");
-            let mut bfs = Bfs::new(&rgraph, *start);
-            while let Some(node) = bfs.next(&rgraph) {
-                let weight = rgraph.node_weight(node).unwrap();
+            let mut processed = HashSet::new();
+            for crate_name in &crate_names {
+                let start = ctx
+                    .indices
+                    .get(crate_name)
+                    .expect("unable to find crate in tree");
+                let weight = rgraph.node_weight(*start).unwrap();
                 let c = ctx.crates.get(weight).unwrap();
-                if c.publish {
-                    println!("git tag {}-v{}", weight, c.version);
+                publish_release(&ctx.root, c, false)?;
+
+                println!("# Please inspect changes and run the following commands when happy:");
+
+                println!("git commit -a -m 'chore: prepare crate releases'");
+                let mut bfs = Bfs::new(&rgraph, *start);
+                while let Some(node) = bfs.next(&rgraph) {
+                    let weight = rgraph.node_weight(node).unwrap();
+                    let c = ctx.crates.get(weight).unwrap();
+                    if c.publish && !processed.contains(weight) {
+                        println!("git tag {}-v{}", weight, c.version);
+                    }
                 }
+
+                println!();
+                println!("# Run these commands to publish the crate and dependents:");
+
+                let mut bfs = Bfs::new(&rgraph, *start);
+                while let Some(node) = bfs.next(&rgraph) {
+                    let weight = rgraph.node_weight(node).unwrap();
+
+                    if !processed.contains(weight) {
+                        processed.insert(weight.clone());
+                        let c = ctx.crates.get(weight).unwrap();
+
+                        let mut args: Vec<String> = vec![
+                            "publish".to_string(),
+                            "--manifest-path".to_string(),
+                            c.path.join("Cargo.toml").display().to_string(),
+                        ];
+
+                        let config = c.configs.first().unwrap(); // TODO
+                        if !config.features.is_empty() {
+                            args.push("--features".into());
+                            args.push(config.features.join(","));
+                        }
+
+                        if let Some(target) = &config.target {
+                            args.push("--target".into());
+                            args.push(target.clone());
+                        }
+
+                        /*
+                        let mut dry_run = args.clone();
+                        dry_run.push("--dry-run".to_string());
+
+                        println!("cargo {}", dry_run.join(" "));
+                        */
+                        if c.publish {
+                            println!("cargo {}", args.join(" "));
+                        }
+                    }
+                }
+
+                println!();
+                println!("# Run this command to push changes and tags:");
+                println!("git push --tags");
             }
-
-            println!();
-            println!("# Run these commands to publish the crate and dependents:");
-
-            let mut bfs = Bfs::new(&rgraph, *start);
-            while let Some(node) = bfs.next(&rgraph) {
-                let weight = rgraph.node_weight(node).unwrap();
-                let c = ctx.crates.get(weight).unwrap();
-
-                let mut args: Vec<String> = vec![
-                    "publish".to_string(),
-                    "--manifest-path".to_string(),
-                    c.path.join("Cargo.toml").display().to_string(),
-                ];
-
-                let config = c.configs.first().unwrap(); // TODO
-                if !config.features.is_empty() {
-                    args.push("--features".into());
-                    args.push(config.features.join(","));
-                }
-
-                if let Some(target) = &config.target {
-                    args.push("--target".into());
-                    args.push(target.clone());
-                }
-
-                /*
-                let mut dry_run = args.clone();
-                dry_run.push("--dry-run".to_string());
-
-                println!("cargo {}", dry_run.join(" "));
-                */
-                if c.publish {
-                    println!("cargo {}", args.join(" "));
-                }
-            }
-
-            println!();
-            println!("# Run this command to push changes and tags:");
-            println!("git push --tags");
         }
     }
     Ok(())
