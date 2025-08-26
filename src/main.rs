@@ -366,9 +366,10 @@ fn main() -> Result<()> {
             let mut rgraph = ctx.graph.clone();
             rgraph.reverse();
 
-            let mut bumped = HashMap::new();
+            let mut to_bump = HashMap::new();
+            // Do semver checks to figure out which versions to bump
             for crate_name in &crate_names {
-                if !bumped.contains_key(crate_name) {
+                if !to_bump.contains_key(crate_name) {
                     let start = ctx
                         .indices
                         .get(crate_name)
@@ -378,7 +379,7 @@ fn main() -> Result<()> {
                     while let Some(node) = bfs.next(&rgraph) {
                         let weight = rgraph.node_weight(node).unwrap();
                         println!("Preparing {weight}");
-                        let c = ctx.crates.get_mut(weight).unwrap();
+                        let c = ctx.crates.get(weight).unwrap();
                         if c.publish {
                             let ver = semver::Version::parse(&c.version)?;
                             let (rtype, newver) = match check_semver(ctx.root.clone(), c)? {
@@ -393,44 +394,50 @@ fn main() -> Result<()> {
                                 _ => unreachable!(),
                             };
 
-                            let oldver = c.version.clone();
                             println!("Updating {} from {} -> {}", weight, c.version, newver);
                             let newver = newver.to_string();
 
-                            match bumped.get(&c.name) {
+                            match to_bump.get(&c.name) {
                                 // We already bumped the minor version, don't do it again.
-                                Some(ReleaseType::Minor) => {
+                                Some((ReleaseType::Minor, _)) => {
                                     println!("Minor version already bumped, skipping");
                                 }
                                 // No reason to bump patch twice
-                                Some(ReleaseType::Patch) if rtype == ReleaseType::Patch => {
+                                Some((ReleaseType::Patch, _)) if rtype == ReleaseType::Patch => {
                                     println!("Patch version already bumped, skipping");
                                 }
                                 // Do the bump as required
                                 _ => {
-                                    bumped.insert(c.name.clone(), rtype);
-                                    update_version(c, &newver)?;
-                                    let c = ctx.crates.get(weight).unwrap();
-
-                                    // Update all nodes further down the tree
-                                    let mut bfs = Bfs::new(&rgraph, node);
-                                    while let Some(dep_node) = bfs.next(&rgraph) {
-                                        let dep_weight = rgraph.node_weight(dep_node).unwrap();
-                                        println!(
-                                            "Updating {}-{} -> {} for {}",
-                                            c.name, oldver, newver, dep_weight
-                                        );
-                                        let dep = ctx.crates.get(dep_weight).unwrap();
-                                        update_versions(dep, &c.name, &newver)?;
-                                    }
-
-                                    // Update changelog
-                                    update_changelog(&ctx.root, c)?;
+                                    to_bump.insert(c.name.clone(), (rtype, newver.clone()));
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            // Bump the versions as agreed
+            for (name, (_, newver)) in to_bump.iter() {
+                let c = ctx.crates.get_mut(name).unwrap();
+                let oldver = c.version.clone();
+                update_version(c, &newver)?;
+                let c = ctx.crates.get(name).unwrap();
+
+                // Update all nodes further down the tree
+                let node = ctx.indices.get(name).expect("unable to find crate in tree");
+                let mut bfs = Bfs::new(&rgraph, *node);
+                while let Some(dep_node) = bfs.next(&rgraph) {
+                    let dep_weight = rgraph.node_weight(dep_node).unwrap();
+                    println!(
+                        "Updating {}-{} -> {} for {}",
+                        c.name, oldver, newver, dep_weight
+                    );
+                    let dep = ctx.crates.get(dep_weight).unwrap();
+                    update_versions(dep, &c.name, &newver)?;
+                }
+
+                // Update changelog
+                update_changelog(&ctx.root, c)?;
             }
 
             let mut processed = HashSet::new();
