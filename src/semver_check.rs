@@ -35,6 +35,7 @@ pub fn minimum_update(root: PathBuf, krate: &Crate) -> Result<ReleaseType, anyho
         semver_check.with_default_features();
         semver_check.set_baseline(baseline);
         semver_check.set_packages(vec![package_name.clone()]);
+        semver_check.set_release_type(ReleaseType::Patch);
         let extra_current_features = config.features.clone();
         let extra_baseline_features = config.features.clone();
         semver_check.set_extra_features(extra_current_features, extra_baseline_features);
