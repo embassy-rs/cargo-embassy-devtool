@@ -461,6 +461,31 @@ fn main() -> Result<()> {
                 }
             }
 
+            // Ensure minor bumps get propagated
+            let keys: Vec<String> = to_bump.keys().map(|s| s.clone()).collect();
+            for name in keys {
+                let (rtype, _) = to_bump[&name];
+
+                if rtype == ReleaseType::Minor {
+                    let start = ctx
+                        .graph
+                        .i
+                        .get(&name)
+                        .expect("unable to find crate in tree");
+
+                    let mut bfs = Bfs::new(&ctx.graph.g, *start);
+                    while let Some(node) = bfs.next(&ctx.graph.g) {
+                        let weight = ctx.graph.g.node_weight(node).unwrap();
+                        if let Some((ReleaseType::Patch, newver)) = to_bump.get(weight) {
+                            let v = semver::Version::parse(newver)?;
+                            let newver = semver::Version::new(v.major, v.minor + 1, 0);
+                            to_bump
+                                .insert(weight.clone(), (ReleaseType::Minor, newver.to_string()));
+                        }
+                    }
+                }
+            }
+
             // Bump the versions as agreed
             for (name, (_, newver)) in to_bump.iter() {
                 let c = ctx.crates.get_mut(name).unwrap();
