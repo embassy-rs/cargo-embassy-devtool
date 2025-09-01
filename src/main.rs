@@ -462,7 +462,7 @@ fn main() -> Result<()> {
             }
 
             // Ensure minor bumps get propagated
-            let keys: Vec<String> = to_bump.keys().map(|s| s.clone()).collect();
+            let keys: Vec<String> = to_bump.keys().cloned().collect();
             for name in keys {
                 let (rtype, _) = to_bump[&name];
 
@@ -490,13 +490,13 @@ fn main() -> Result<()> {
             for (name, (_, newver)) in to_bump.iter() {
                 let c = ctx.crates.get_mut(name).unwrap();
                 let oldver = c.version.clone();
-                update_version(c, &newver)?;
+                update_version(c, newver)?;
                 let c = ctx.crates.get(name).unwrap();
 
                 // Update all nodes further down the tree
-                update_graph_deps(&ctx, &ctx.graph, name, &oldver, &newver)?;
-                update_graph_deps(&ctx, &ctx.build_graph, name, &oldver, &newver)?;
-                update_graph_deps(&ctx, &ctx.dev_graph, name, &oldver, &newver)?;
+                update_graph_deps(&ctx, &ctx.graph, name, &oldver, newver)?;
+                update_graph_deps(&ctx, &ctx.build_graph, name, &oldver, newver)?;
+                update_graph_deps(&ctx, &ctx.dev_graph, name, &oldver, newver)?;
 
                 // Update changelog
                 update_changelog(&ctx.root, c)?;
@@ -609,8 +609,7 @@ fn update_graph_deps(
     while let Some(dep_node) = bfs.next(&graph.g) {
         let dep_weight = graph.g.node_weight(dep_node).unwrap();
         println!(
-            "Updating {}-{} -> {} for {}",
-            name, oldver, newver, dep_weight
+            "Updating {name}-{oldver} -> {newver} for {dep_weight}"
         );
         let dep = ctx.crates.get(dep_weight).unwrap();
         update_versions(dep, name, newver)?;
