@@ -42,13 +42,24 @@ pub struct MetadataEmbassy {
     pub build: Vec<BuildConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct BuildConfig {
+    pub group: Option<String>,
     #[serde(default)]
     pub features: Vec<String>,
     pub target: Option<String>,
+    #[serde(default)]
+    pub env: std::collections::BTreeMap<String, String>,
+    #[serde(default, rename = "build-std")]
+    pub build_std: Vec<String>,
     #[serde(rename = "artifact-dir")]
     pub artifact_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BuildConfigBatch {
+    pub env: std::collections::BTreeMap<String, String>,
+    pub build_std: Vec<String>,
 }
 
 pub type CrateId = String;

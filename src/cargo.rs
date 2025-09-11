@@ -199,12 +199,16 @@ impl CargoArgsBuilder {
 #[derive(Debug, Default)]
 pub struct CargoBatchBuilder {
     commands: Vec<Vec<String>>,
+    build_std: Option<Vec<String>>,
 }
 
 impl CargoBatchBuilder {
     #[must_use]
     pub fn new() -> Self {
-        Self { commands: vec![] }
+        Self {
+            commands: vec![],
+            build_std: None,
+        }
     }
 
     pub fn add_command(&mut self, args: Vec<String>) -> &mut Self {
@@ -212,9 +216,21 @@ impl CargoBatchBuilder {
         self
     }
 
+    pub fn build_std(&mut self, build_std: Vec<String>) -> &mut Self {
+        self.build_std = Some(build_std);
+        self
+    }
+
     #[must_use]
     pub fn build(&self) -> Vec<String> {
         let mut args = vec!["batch".to_string()];
+
+        // Add build-std arguments before the first ---
+        if let Some(ref build_std) = self.build_std {
+            if !build_std.is_empty() {
+                args.push(format!("-Zbuild-std={}", build_std.join(",")));
+            }
+        }
 
         for command in &self.commands {
             args.push("---".to_string());

@@ -60,6 +60,9 @@ enum Command {
         /// Crate to check. If not specified checks all crates.
         #[arg(value_name = "CRATE")]
         crate_name: Option<String>,
+        /// Group name. If specified it'll build all configs matching it, if not specified it'll build all configs with no group set.
+        #[arg(long)]
+        group: Option<String>,
     },
     /// SemverCheck
     SemverCheck {
@@ -189,11 +192,7 @@ fn discover_crates(dir: &PathBuf, crates: &mut BTreeMap<CrateId, Crate>) -> Resu
 
                 let mut configs = metadata.build.clone();
                 if configs.is_empty() {
-                    configs.push(BuildConfig {
-                        features: vec![],
-                        target: None,
-                        artifact_dir: None,
-                    })
+                    configs.push(BuildConfig::default())
                 }
 
                 crates.insert(
@@ -374,8 +373,8 @@ fn main() -> Result<()> {
                 println!("|- {}-{}", weight, crt.version);
             }
         }
-        Command::Build { crate_name } => {
-            build::build(&ctx, crate_name.as_deref())?;
+        Command::Build { crate_name, group } => {
+            build::build(&ctx, crate_name.as_deref(), group.as_deref())?;
         }
         Command::SetVersion {
             crate_name,
@@ -608,9 +607,7 @@ fn update_graph_deps(
     let mut bfs = Bfs::new(&graph.g, *node);
     while let Some(dep_node) = bfs.next(&graph.g) {
         let dep_weight = graph.g.node_weight(dep_node).unwrap();
-        println!(
-            "Updating {name}-{oldver} -> {newver} for {dep_weight}"
-        );
+        println!("Updating {name}-{oldver} -> {newver} for {dep_weight}");
         let dep = ctx.crates.get(dep_weight).unwrap();
         update_versions(dep, name, newver)?;
     }
