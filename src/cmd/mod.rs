@@ -4,6 +4,7 @@ pub mod check_crlf;
 pub mod check_manifest;
 pub mod dependencies;
 pub mod dependents;
+pub mod doc;
 pub mod list;
 pub mod prepare_release;
 pub mod semver_check;

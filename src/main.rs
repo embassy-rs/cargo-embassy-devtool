@@ -32,6 +32,7 @@ enum Command {
     PrepareRelease(cmd::prepare_release::Args),
     CheckManifest(cmd::check_manifest::Args),
     CheckCrlf(cmd::check_crlf::Args),
+    Doc(cmd::doc::Args),
 }
 
 fn list_crates(root: &PathBuf) -> Result<BTreeMap<CrateId, Crate>> {
@@ -193,6 +194,9 @@ fn main() -> Result<()> {
         }
         Command::CheckCrlf(args) => {
             cmd::check_crlf::run(&ctx, args)?;
+        }
+        Command::Doc(args) => {
+            cmd::doc::run(&ctx, args)?;
         }
     }
     Ok(())
