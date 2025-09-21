@@ -1,13 +1,35 @@
-use std::collections::HashSet;
-use std::path::Path;
-use std::path::PathBuf;
-
-use anyhow::anyhow;
+use crate::types::Context;
+use anyhow::{anyhow, bail, Result};
 use cargo_semver_checks::{Check, GlobalConfig, ReleaseType, Rustdoc};
 use flate2::read::GzDecoder;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use tar::Archive;
 
 use crate::types::{BuildConfig, Crate};
+
+/// SemverCheck
+#[derive(Debug, clap::Args)]
+pub struct Args {
+    /// Specific crate name to check
+    #[arg(value_name = "CRATE")]
+    pub crate_name: String,
+}
+
+pub fn run(ctx: &Context, args: Args) -> Result<()> {
+    let c = ctx.crates.get(&args.crate_name).unwrap();
+    if !c.publish {
+        bail!(
+            "Cannot run semver-check on non-publishable crate '{}'",
+            args.crate_name
+        );
+    }
+
+    let root = ctx.root.clone();
+    let min_version = minimum_update(root, c)?;
+    println!("Version should be bumped to {min_version:?}");
+    Ok(())
+}
 
 /// Return the minimum required bump for the next release.
 /// Even if nothing changed this will be [ReleaseType::Patch]
@@ -181,4 +203,13 @@ fn build_doc_json(krate: &Crate, config: &BuildConfig) -> Result<PathBuf, anyhow
     log::debug!("{cargo_args:#?}");
     crate::cargo::run_with_env(&cargo_args, &krate.path, envs, false)?;
     Ok(current_path)
+}
+
+pub fn check_semver(
+    root: std::path::PathBuf,
+    c: &crate::types::Crate,
+) -> Result<ReleaseType, anyhow::Error> {
+    let min_version = minimum_update(root, c)?;
+    println!("Version should be bumped to {min_version:?}");
+    Ok(min_version)
 }

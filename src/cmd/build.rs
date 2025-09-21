@@ -1,39 +1,43 @@
-use anyhow::Result;
+use crate::types::Context;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
-// ...existing code...
-use crate::types::BuildConfigBatch;
+/// Build
+#[derive(Debug, clap::Args)]
+pub struct Args {
+    /// Crate to check. If not specified checks all crates.
+    #[arg(value_name = "CRATE")]
+    pub crate_name: Option<String>,
+    /// Group name. If specified it'll build all configs matching it, if not specified it'll build all configs with no group set.
+    #[arg(long)]
+    pub group: Option<String>,
+}
 
-pub(crate) fn build(
-    ctx: &crate::Context,
-    crate_name: Option<&str>,
-    group: Option<&str>,
-) -> Result<()> {
-    // Process either specific crate or all crates
+pub fn run(ctx: &Context, args: Args) -> Result<()> {
+    let crate_name = args.crate_name.as_deref();
+    let group = args.group.as_deref();
     let crates_to_build: Vec<_> = if let Some(name) = crate_name {
-        // Build only the specified crate
         if let Some(krate) = ctx.crates.get(name) {
             vec![krate]
         } else {
-            return Err(anyhow::anyhow!("Crate '{}' not found", name));
+            return Err(anyhow!("Crate '{}' not found", name));
         }
     } else {
-        // Build all crates
         ctx.crates.values().collect()
     };
 
-    // Group build configurations by their batch properties
-    let mut batch_groups: HashMap<BuildConfigBatch, Vec<(String, &crate::types::BuildConfig)>> =
-        HashMap::new();
+    let mut batch_groups: HashMap<
+        crate::types::BuildConfigBatch,
+        Vec<(String, &crate::types::BuildConfig)>,
+    > = HashMap::new();
 
     for krate in crates_to_build {
         for config in &krate.configs {
-            // only build matching group.
             if config.group.as_deref() != group {
                 continue;
             }
 
-            let batch_key = BuildConfigBatch {
+            let batch_key = crate::types::BuildConfigBatch {
                 env: config.env.clone(),
                 build_std: config.build_std.clone(),
             };
@@ -46,9 +50,7 @@ pub(crate) fn build(
         }
     }
 
-    // Execute a separate cargo batch for each group
     for (batch_config, configs) in batch_groups {
-        // Build the cargo batch command arguments directly
         let mut batch_args = vec!["batch".to_string()];
         if !batch_config.build_std.is_empty() {
             batch_args.push(format!("-Zbuild-std={}", batch_config.build_std.join(",")));
@@ -75,7 +77,6 @@ pub(crate) fn build(
             batch_args.extend(args);
         }
 
-        // Prepare environment variables, merging RUSTFLAGS if already set
         let mut final_env = batch_config.env.clone();
         if let Some(config_rustflags) = final_env.get("RUSTFLAGS") {
             if let Ok(existing_rustflags) = std::env::var("RUSTFLAGS") {

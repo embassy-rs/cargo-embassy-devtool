@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use petgraph::graph::{Graph, NodeIndex};
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -74,4 +75,19 @@ pub struct Crate {
     pub dev_dependencies: Vec<CrateId>,
     pub configs: Vec<BuildConfig>,
     pub publish: bool,
+}
+
+#[derive(Debug)]
+pub struct Context {
+    pub root: PathBuf,
+    pub crates: BTreeMap<String, Crate>,
+    pub graph: GraphContext,
+    pub dev_graph: GraphContext,
+    pub build_graph: GraphContext,
+}
+
+#[derive(Debug)]
+pub struct GraphContext {
+    pub g: Graph<String, ()>,
+    pub i: HashMap<String, NodeIndex>,
 }
