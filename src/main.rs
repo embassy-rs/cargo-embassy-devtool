@@ -30,6 +30,8 @@ enum Command {
     Build(cmd::build::Args),
     SemverCheck(cmd::semver_check::Args),
     PrepareRelease(cmd::prepare_release::Args),
+    CheckManifest(cmd::check_manifest::Args),
+    CheckCrlf(cmd::check_crlf::Args),
 }
 
 fn list_crates(root: &PathBuf) -> Result<BTreeMap<CrateId, Crate>> {
@@ -185,6 +187,12 @@ fn main() -> Result<()> {
         }
         Command::PrepareRelease(args) => {
             cmd::prepare_release::run(&mut ctx, args)?;
+        }
+        Command::CheckManifest(args) => {
+            cmd::check_manifest::run(&ctx, args)?;
+        }
+        Command::CheckCrlf(args) => {
+            cmd::check_crlf::run(&ctx, args)?;
         }
     }
     Ok(())
