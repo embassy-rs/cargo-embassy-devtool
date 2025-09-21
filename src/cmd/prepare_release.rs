@@ -1,6 +1,6 @@
+use crate::bump::bump;
 use crate::cmd::semver_check;
 use crate::types::{Context, Crate};
-use crate::{update_changelog, update_graph_deps, update_version};
 use anyhow::{anyhow, bail, Result};
 use cargo_semver_checks::ReleaseType;
 use std::collections::HashSet;
@@ -21,13 +21,10 @@ pub struct Args {
 pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     let crate_names = &args.crate_names;
     for crate_name in crate_names {
-        let start = ctx
-            .graph
-            .i
+        let start_crate = ctx
+            .crates
             .get(crate_name)
             .expect("unable to find crate in tree");
-        let start_weight = ctx.graph.g.node_weight(*start).unwrap();
-        let start_crate = ctx.crates.get(start_weight).unwrap();
         if !start_crate.publish {
             bail!(
                 "Cannot prepare release for non-publishable crate '{}'",
@@ -39,16 +36,10 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     let mut to_bump = std::collections::HashMap::new();
     for crate_name in crate_names {
         if !to_bump.contains_key(crate_name) {
-            let start = ctx
-                .graph
-                .i
-                .get(crate_name)
-                .expect("unable to find crate in tree");
-            let mut bfs = petgraph::visit::Bfs::new(&ctx.graph.g, *start);
-            while let Some(node) = bfs.next(&ctx.graph.g) {
-                let weight = ctx.graph.g.node_weight(node).unwrap();
-                let c = ctx.crates.get(weight).unwrap();
-                if c.publish && !to_bump.contains_key(weight) {
+            let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+            for dep_crate_name in deps {
+                let c = ctx.crates.get(&dep_crate_name).unwrap();
+                if c.publish && !to_bump.contains_key(&dep_crate_name) {
                     let ver = semver::Version::parse(&c.version)?;
                     let (rtype, newver) = match semver_check::check_semver(ctx.root.clone(), c)? {
                         ReleaseType::Major | ReleaseType::Minor => (
@@ -72,42 +63,29 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     for name in keys {
         let (rtype, _) = to_bump[&name];
         if rtype == ReleaseType::Minor {
-            let start = ctx
-                .graph
-                .i
-                .get(&name)
-                .expect("unable to find crate in tree");
-            let mut bfs = petgraph::visit::Bfs::new(&ctx.graph.g, *start);
-            while let Some(node) = bfs.next(&ctx.graph.g) {
-                let weight = ctx.graph.g.node_weight(node).unwrap();
-                if let Some((ReleaseType::Patch, newver)) = to_bump.get(weight) {
+            let deps = ctx.recursive_dependencies(std::iter::once(name.as_str()));
+            for dep_crate_name in deps {
+                if let Some((ReleaseType::Patch, newver)) = to_bump.get(&dep_crate_name) {
                     let v = semver::Version::parse(newver)?;
                     let newver = semver::Version::new(v.major, v.minor + 1, 0);
-                    to_bump.insert(weight.clone(), (ReleaseType::Minor, newver.to_string()));
+                    to_bump.insert(
+                        dep_crate_name.clone(),
+                        (ReleaseType::Minor, newver.to_string()),
+                    );
                 }
             }
         }
     }
 
     for (name, (_, newver)) in to_bump.iter() {
-        let c = ctx.crates.get_mut(name).unwrap();
-        let oldver = c.version.clone();
-        update_version(c, newver)?;
-        let c = ctx.crates.get(name).unwrap();
-        update_graph_deps(ctx, &ctx.graph, name, &oldver, newver)?;
-        update_graph_deps(ctx, &ctx.build_graph, name, &oldver, newver)?;
-        update_graph_deps(ctx, &ctx.dev_graph, name, &oldver, newver)?;
-        update_changelog(&ctx.root, c)?;
+        bump(ctx, name, newver)?;
     }
 
     for crate_name in crate_names {
-        let start = ctx
-            .graph
-            .i
+        let c = ctx
+            .crates
             .get(crate_name)
             .expect("unable to find crate in tree");
-        let weight = ctx.graph.g.node_weight(*start).unwrap();
-        let c = ctx.crates.get(weight).unwrap();
         publish_release(&ctx.root, c, false)?;
     }
 
@@ -116,18 +94,12 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     println!();
     let mut processed = HashSet::new();
     for crate_name in crate_names {
-        let start = ctx
-            .graph
-            .i
-            .get(crate_name)
-            .expect("unable to find crate in tree");
-        let mut bfs = petgraph::visit::Bfs::new(&ctx.graph.g, *start);
-        while let Some(node) = bfs.next(&ctx.graph.g) {
-            let weight = ctx.graph.g.node_weight(node).unwrap();
-            let c = ctx.crates.get(weight).unwrap();
-            if c.publish && !processed.contains(weight) {
-                processed.insert(weight.clone());
-                println!("git tag {}-v{}", weight, c.version);
+        let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+        for dep_crate_name in deps {
+            let c = ctx.crates.get(&dep_crate_name).unwrap();
+            if c.publish && !processed.contains(&dep_crate_name) {
+                processed.insert(dep_crate_name.clone());
+                println!("git tag {}-v{}", dep_crate_name, c.version);
             }
         }
     }
@@ -135,17 +107,11 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     println!();
     println!("# Run these commands to publish the crate and dependents:");
     for crate_name in crate_names {
-        let start = ctx
-            .graph
-            .i
-            .get(crate_name)
-            .expect("unable to find crate in tree");
-        let mut bfs = petgraph::visit::Bfs::new(&ctx.graph.g, *start);
-        while let Some(node) = bfs.next(&ctx.graph.g) {
-            let weight = ctx.graph.g.node_weight(node).unwrap();
-            if !processed.contains(weight) {
-                processed.insert(weight.clone());
-                let c = ctx.crates.get(weight).unwrap();
+        let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+        for dep_crate_name in deps {
+            if !processed.contains(&dep_crate_name) {
+                processed.insert(dep_crate_name.clone());
+                let c = ctx.crates.get(&dep_crate_name).unwrap();
                 let mut args: Vec<String> = vec![
                     "publish".to_string(),
                     "--manifest-path".to_string(),

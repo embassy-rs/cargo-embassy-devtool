@@ -13,6 +13,12 @@ pub struct Args {
     pub group: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BuildConfigBatch {
+    pub env: std::collections::BTreeMap<String, String>,
+    pub build_std: Vec<String>,
+}
+
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
     let crate_name = args.crate_name.as_deref();
     let group = args.group.as_deref();
@@ -26,10 +32,8 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
         ctx.crates.values().collect()
     };
 
-    let mut batch_groups: HashMap<
-        crate::types::BuildConfigBatch,
-        Vec<(String, &crate::types::BuildConfig)>,
-    > = HashMap::new();
+    let mut batch_groups: HashMap<BuildConfigBatch, Vec<(String, &crate::types::BuildConfig)>> =
+        HashMap::new();
 
     for krate in crates_to_build {
         for config in &krate.configs {
@@ -37,7 +41,7 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
                 continue;
             }
 
-            let batch_key = crate::types::BuildConfigBatch {
+            let batch_key = BuildConfigBatch {
                 env: config.env.clone(),
                 build_std: config.build_std.clone(),
             };

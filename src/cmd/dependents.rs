@@ -1,6 +1,5 @@
 use crate::types::Context;
 use anyhow::Result;
-use petgraph::Direction;
 
 /// List all dependencies for a crate
 #[derive(Debug, clap::Args)]
@@ -11,18 +10,19 @@ pub struct Args {
 }
 
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
-    let idx = ctx
-        .graph
-        .i
-        .get(&args.crate_name)
-        .expect("unable to find crate in tree");
-    let weight = ctx.graph.g.node_weight(*idx).unwrap();
-    let crt = ctx.crates.get(weight).unwrap();
-    println!("+ {}-{}", weight, crt.version);
-    for parent in ctx.graph.g.neighbors_directed(*idx, Direction::Incoming) {
-        let weight = ctx.graph.g.node_weight(parent).unwrap();
-        let crt = ctx.crates.get(weight).unwrap();
-        println!("|- {}-{}", weight, crt.version);
+    if let Some(krate) = ctx.crates.get(&args.crate_name) {
+        println!("+ {}-{}", args.crate_name, krate.version);
+
+        let dependents = ctx.recursive_dependents(std::iter::once(args.crate_name.as_str()));
+        for dependent_name in dependents {
+            if dependent_name != args.crate_name {
+                if let Some(dependent_crate) = ctx.crates.get(&dependent_name) {
+                    println!("|- {}-{}", dependent_name, dependent_crate.version);
+                }
+            }
+        }
+    } else {
+        eprintln!("Crate '{}' not found", args.crate_name);
     }
     Ok(())
 }

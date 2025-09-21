@@ -1,6 +1,5 @@
 use crate::types::Context;
 use anyhow::Result;
-use petgraph::visit::Bfs;
 
 #[derive(Debug, clap::Args)]
 /// List all dependencies for a crate
@@ -11,20 +10,19 @@ pub struct Args {
 }
 
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
-    let idx = ctx
-        .graph
-        .i
-        .get(&args.crate_name)
-        .expect("unable to find crate in tree");
-    let mut bfs = Bfs::new(&ctx.graph.g, *idx);
-    while let Some(node) = bfs.next(&ctx.graph.g) {
-        let weight = ctx.graph.g.node_weight(node).unwrap();
-        let crt = ctx.crates.get(weight).unwrap();
-        if *weight == args.crate_name {
-            println!("+ {}-{}", weight, crt.version);
-        } else {
-            println!("|- {}-{}", weight, crt.version);
+    if let Some(krate) = ctx.crates.get(&args.crate_name) {
+        println!("+ {}-{}", args.crate_name, krate.version);
+
+        let deps = ctx.recursive_dependencies(std::iter::once(args.crate_name.as_str()));
+        for dep_name in deps {
+            if dep_name != args.crate_name {
+                if let Some(dep_crate) = ctx.crates.get(&dep_name) {
+                    println!("|- {}-{}", dep_name, dep_crate.version);
+                }
+            }
         }
+    } else {
+        eprintln!("Crate '{}' not found", args.crate_name);
     }
     Ok(())
 }

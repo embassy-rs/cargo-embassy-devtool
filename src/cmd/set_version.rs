@@ -1,4 +1,4 @@
-use crate::{update_changelog, update_graph_deps, update_version};
+use crate::bump::bump;
 use crate::types::Context;
 use anyhow::Result;
 
@@ -18,17 +18,8 @@ pub struct Args {
 pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     let newver = &args.crate_version;
     let name = &args.crate_name;
-    let c = ctx.crates.get_mut(name).unwrap();
-    let oldver = c.version.clone();
-    update_version(c, newver)?;
 
-    let c = ctx.crates.get(name).unwrap();
-    // Update all nodes further down the tree
-    update_graph_deps(ctx, &ctx.graph, name, &oldver, newver)?;
-    update_graph_deps(ctx, &ctx.build_graph, name, &oldver, newver)?;
-    update_graph_deps(ctx, &ctx.dev_graph, name, &oldver, newver)?;
+    bump(ctx, name, newver)?;
 
-    // Update changelog
-    update_changelog(&ctx.root, c)?;
     Ok(())
 }
