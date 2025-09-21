@@ -26,7 +26,7 @@ enum Command {
     List(cmd::list::Args),
     Dependencies(cmd::dependencies::Args),
     Dependents(cmd::dependents::Args),
-    SetVersion(cmd::set_version::Args),
+    Bump(cmd::bump::Args),
     Build(cmd::build::Args),
     SemverCheck(cmd::semver_check::Args),
     PrepareRelease(cmd::prepare_release::Args),
@@ -177,8 +177,8 @@ fn main() -> Result<()> {
         Command::Build(args) => {
             cmd::build::run(&ctx, args)?;
         }
-        Command::SetVersion(args) => {
-            cmd::set_version::run(&mut ctx, args)?;
+        Command::Bump(args) => {
+            cmd::bump::run(&mut ctx, args)?;
         }
         Command::SemverCheck(args) => {
             cmd::semver_check::run(&ctx, args)?;
