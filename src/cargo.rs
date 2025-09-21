@@ -1,18 +1,12 @@
 //! Tools for working with Cargo.
 
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
-use serde::{Deserialize, Serialize};
 
 use crate::windows_safe_path;
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Artifact {
-    pub executable: PathBuf,
-}
 
 /// Execute cargo with the given arguments and from the specified directory.
 pub fn run_with_env<I, K, V>(args: &[String], cwd: &Path, envs: I, capture: bool) -> Result<String>
@@ -89,148 +83,4 @@ fn get_cargo() -> String {
     let cargo = String::from("cargo");
 
     cargo
-}
-
-#[derive(Debug, Default)]
-pub struct CargoArgsBuilder {
-    toolchain: Option<String>,
-    subcommand: String,
-    target: Option<String>,
-    features: Vec<String>,
-    args: Vec<String>,
-}
-
-impl CargoArgsBuilder {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            toolchain: None,
-            subcommand: String::new(),
-            target: None,
-            features: vec![],
-            args: vec![],
-        }
-    }
-
-    #[must_use]
-    pub fn toolchain<S>(mut self, toolchain: S) -> Self
-    where
-        S: Into<String>,
-    {
-        self.toolchain = Some(toolchain.into());
-        self
-    }
-
-    #[must_use]
-    pub fn subcommand<S>(mut self, subcommand: S) -> Self
-    where
-        S: Into<String>,
-    {
-        self.subcommand = subcommand.into();
-        self
-    }
-
-    #[must_use]
-    pub fn target<S>(mut self, target: S) -> Self
-    where
-        S: Into<String>,
-    {
-        self.target = Some(target.into());
-        self
-    }
-
-    #[must_use]
-    pub fn features(mut self, features: &[String]) -> Self {
-        self.features = features.to_vec();
-        self
-    }
-
-    #[must_use]
-    pub fn artifact_dir<S>(mut self, artifact_dir: S) -> Self
-    where
-        S: Into<String>,
-    {
-        self.args
-            .push(format!("--artifact-dir={}", artifact_dir.into()));
-        self
-    }
-
-    #[must_use]
-    pub fn arg<S>(mut self, arg: S) -> Self
-    where
-        S: Into<String>,
-    {
-        self.args.push(arg.into());
-        self
-    }
-
-    #[must_use]
-    pub fn build(&self) -> Vec<String> {
-        let mut args = vec![];
-
-        if let Some(ref toolchain) = self.toolchain {
-            args.push(format!("+{toolchain}"));
-        }
-
-        args.push(self.subcommand.clone());
-
-        if let Some(ref target) = self.target {
-            args.push(format!("--target={target}"));
-        }
-
-        if !self.features.is_empty() {
-            args.push(format!("--features={}", self.features.join(",")));
-        }
-
-        for arg in self.args.iter() {
-            args.push(arg.clone());
-        }
-
-        args
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct CargoBatchBuilder {
-    commands: Vec<Vec<String>>,
-    build_std: Option<Vec<String>>,
-}
-
-impl CargoBatchBuilder {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            commands: vec![],
-            build_std: None,
-        }
-    }
-
-    pub fn add_command(&mut self, args: Vec<String>) -> &mut Self {
-        self.commands.push(args);
-        self
-    }
-
-    pub fn build_std(&mut self, build_std: Vec<String>) -> &mut Self {
-        self.build_std = Some(build_std);
-        self
-    }
-
-    #[must_use]
-    pub fn build(&self) -> Vec<String> {
-        let mut args = vec!["batch".to_string()];
-
-        // Add build-std arguments before the first ---
-        if let Some(ref build_std) = self.build_std {
-            if !build_std.is_empty() {
-                args.push(format!("-Zbuild-std={}", build_std.join(",")));
-            }
-        }
-
-        for command in &self.commands {
-            args.push("---".to_string());
-            args.extend(command.clone());
-        }
-
-        args
-    }
 }

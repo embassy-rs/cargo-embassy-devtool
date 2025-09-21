@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use crate::cargo::{CargoArgsBuilder, CargoBatchBuilder};
+// ...existing code...
 use crate::types::BuildConfigBatch;
 
 pub(crate) fn build(
@@ -48,42 +48,38 @@ pub(crate) fn build(
 
     // Execute a separate cargo batch for each group
     for (batch_config, configs) in batch_groups {
-        let mut batch_builder = CargoBatchBuilder::new();
-
-        // Set build-std at the batch level
+        // Build the cargo batch command arguments directly
+        let mut batch_args = vec!["batch".to_string()];
         if !batch_config.build_std.is_empty() {
-            batch_builder.build_std(batch_config.build_std.clone());
+            batch_args.push(format!("-Zbuild-std={}", batch_config.build_std.join(",")));
         }
 
         for (manifest_path, config) in configs {
-            let mut args_builder = CargoArgsBuilder::new()
-                .subcommand("build")
-                .arg("--release")
-                .arg(format!("--manifest-path={}", manifest_path));
+            let mut args = vec![
+                "build".to_string(),
+                "--release".to_string(),
+                format!("--manifest-path={}", manifest_path),
+            ];
 
             if let Some(ref target) = config.target {
-                args_builder = args_builder.target(target);
+                args.push(format!("--target={}", target));
             }
-
             if !config.features.is_empty() {
-                args_builder = args_builder.features(&config.features);
+                args.push(format!("--features={}", config.features.join(",")));
             }
-
             if let Some(ref artifact_dir) = config.artifact_dir {
-                args_builder = args_builder.artifact_dir(artifact_dir);
+                args.push(format!("--artifact-dir={}", artifact_dir));
             }
 
-            batch_builder.add_command(args_builder.build());
+            batch_args.push("---".to_string());
+            batch_args.extend(args);
         }
 
         // Prepare environment variables, merging RUSTFLAGS if already set
         let mut final_env = batch_config.env.clone();
-
-        // If RUSTFLAGS is set in both the current environment and the build config, merge them
         if let Some(config_rustflags) = final_env.get("RUSTFLAGS") {
             if let Ok(existing_rustflags) = std::env::var("RUSTFLAGS") {
                 if !existing_rustflags.is_empty() {
-                    // Simply concatenate existing RUSTFLAGS with config RUSTFLAGS
                     final_env.insert(
                         "RUSTFLAGS".to_string(),
                         format!("{} {}", existing_rustflags, config_rustflags),
@@ -92,8 +88,6 @@ pub(crate) fn build(
             }
         }
 
-        // Execute the cargo batch command with environment variables
-        let batch_args = batch_builder.build();
         crate::cargo::run_with_env(&batch_args, &ctx.root, &final_env, false)?;
     }
 

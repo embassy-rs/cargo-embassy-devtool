@@ -7,7 +7,6 @@ use cargo_semver_checks::{Check, GlobalConfig, ReleaseType, Rustdoc};
 use flate2::read::GzDecoder;
 use tar::Archive;
 
-use crate::cargo::CargoArgsBuilder;
 use crate::types::{BuildConfig, Crate};
 
 /// Return the minimum required bump for the next release.
@@ -161,25 +160,24 @@ fn build_doc_json(krate: &Crate, config: &BuildConfig) -> Result<PathBuf, anyhow
 
     // always use `specific nightly` toolchain so we don't have to deal with potentially
     // different versions of the doc-json
-    let cargo_builder = CargoArgsBuilder::default()
-        .toolchain("nightly-2025-06-29")
-        .subcommand("rustdoc")
-        .features(&features);
-    let cargo_builder = if let Some(target) = &config.target {
-        cargo_builder.target(target.clone())
-    } else {
-        cargo_builder
-    };
-
-    let cargo_builder = cargo_builder
-        .arg("-Zunstable-options")
-        .arg("-Zhost-config")
-        .arg("-Ztarget-applies-to-host")
-        .arg("--lib")
-        .arg("--output-format=json")
-        .arg("-Zbuild-std=alloc,core")
-        .arg("--config=host.rustflags=[\"--cfg=instability_disable_unstable_docs\"]");
-    let cargo_args = cargo_builder.build();
+    let mut cargo_args = vec![
+        "+nightly-2025-06-29".to_string(),
+        "rustdoc".to_string(),
+        "--lib".to_string(),
+        "--output-format=json".to_string(),
+        "-Zunstable-options".to_string(),
+        "-Zhost-config".to_string(),
+        "-Ztarget-applies-to-host".to_string(),
+        "-Zbuild-std=alloc,core".to_string(),
+    ];
+    if let Some(target) = &config.target {
+        cargo_args.push(format!("--target={}", target));
+    }
+    if !features.is_empty() {
+        cargo_args.push(format!("--features={}", features.join(",")));
+    }
+    cargo_args
+        .push("--config=host.rustflags=[\"--cfg=instability_disable_unstable_docs\"]".to_string());
     log::debug!("{cargo_args:#?}");
     crate::cargo::run_with_env(&cargo_args, &krate.path, envs, false)?;
     Ok(current_path)
