@@ -98,6 +98,7 @@ fn list_crates(root: &PathBuf) -> Result<BTreeMap<CrateId, Crate>> {
                         build_dependencies,
                         configs,
                         publish: parsed.package.publish,
+                        doc: parsed.package.metadata.embassy_docs.is_some(),
                     },
                 );
             }
