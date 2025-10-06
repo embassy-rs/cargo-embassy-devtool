@@ -50,6 +50,17 @@ fn check_package_metadata(doc: &DocumentMut, crate_name: &str, is_publishable: b
         .as_table()
         .ok_or_else(|| anyhow!("[package] is not a table"))?;
 
+    // Check edition
+    let edition = package
+        .get("edition")
+        .ok_or_else(|| anyhow!("missing edition field"))?
+        .as_str()
+        .ok_or_else(|| anyhow!("edition field is not a string"))?;
+
+    if edition != "2024" {
+        return Err(anyhow!("edition should be '2024', found '{}'", edition));
+    }
+
     // Check license
     let license = package
         .get("license")
