@@ -11,6 +11,9 @@ pub struct Args {
     /// Group name. If specified it'll build all configs matching it, if not specified it'll build all configs with no group set.
     #[arg(long)]
     pub group: Option<String>,
+    /// Also build all dependents of the specified crate
+    #[arg(long)]
+    pub dependents: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -22,11 +25,33 @@ pub struct BuildConfigBatch {
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
     let crate_name = args.crate_name.as_deref();
     let group = args.group.as_deref();
+
+    // Validate that --dependents is only used with a specific crate
+    if args.dependents && crate_name.is_none() {
+        return Err(anyhow!(
+            "--dependents flag requires a specific crate to be specified"
+        ));
+    }
+
     let crates_to_build: Vec<_> = if let Some(name) = crate_name {
-        if let Some(krate) = ctx.crates.get(name) {
-            vec![krate]
-        } else {
+        if !ctx.crates.contains_key(name) {
             return Err(anyhow!("Crate '{}' not found", name));
+        }
+
+        if args.dependents {
+            // Build the specified crate and all its dependents
+            let mut crate_names: Vec<_> = ctx.recursive_dependents(std::iter::once(name)).collect();
+            crate_names.push(name.to_string()); // Include the original crate
+            crate_names.sort();
+            crate_names.dedup();
+
+            crate_names
+                .iter()
+                .map(|name| ctx.crates.get(name).unwrap())
+                .collect()
+        } else {
+            // Build only the specified crate
+            vec![&ctx.crates[name]]
         }
     } else {
         ctx.crates.values().collect()
