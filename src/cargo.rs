@@ -25,11 +25,16 @@ where
     // using now or in future!
     let cwd = windows_safe_path(cwd);
 
+    let args_str = args.join(" ");
+    let truncated_args = if args_str.len() > 100 {
+        format!("{}... ({} chars)", &args_str[..97], args_str.len())
+    } else {
+        args_str.clone()
+    };
+
     println!(
         "Running `cargo {}` in {:?} - Environment {:?}",
-        args.join(" "),
-        cwd,
-        envs
+        truncated_args, cwd, envs
     );
 
     let mut command = Command::new(get_cargo());
@@ -61,9 +66,14 @@ where
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
+        let truncated_args = if args_str.len() > 100 {
+            format!("{}... ({} chars)", &args_str[..97], args_str.len())
+        } else {
+            args_str
+        };
         bail!(
             "Failed to execute cargo subcommand `cargo {}`",
-            args.join(" "),
+            truncated_args,
         )
     }
 }
