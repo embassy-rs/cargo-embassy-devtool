@@ -99,7 +99,7 @@ impl Context {
         &self,
         crates: impl Iterator<Item = impl AsRef<str>>,
     ) -> impl Iterator<Item = CrateId> {
-        let mut visited = HashSet::new();
+        let mut visited = Vec::new();
         let mut stack = Vec::new();
 
         // Initialize stack with input crates
@@ -107,7 +107,7 @@ impl Context {
             let crate_name = crate_name.as_ref().to_string();
             if !visited.contains(&crate_name) {
                 stack.push(crate_name.clone());
-                visited.insert(crate_name.clone());
+                visited.push(crate_name.clone());
             }
         }
 
@@ -116,7 +116,7 @@ impl Context {
                 for dep in krate.all_dependencies() {
                     if !visited.contains(dep) {
                         stack.push(dep.clone());
-                        visited.insert(dep.clone());
+                        visited.push(dep.clone());
                     }
                 }
             }
@@ -129,7 +129,7 @@ impl Context {
         &self,
         crates: impl Iterator<Item = impl AsRef<str>>,
     ) -> impl Iterator<Item = CrateId> {
-        let mut visited = HashSet::new();
+        let mut visited = Vec::new();
         let mut stack = Vec::new();
 
         // Initialize stack with input crates
@@ -137,7 +137,7 @@ impl Context {
             let crate_name = crate_name.as_ref().to_string();
             if !visited.contains(&crate_name) {
                 stack.push(crate_name.clone());
-                visited.insert(crate_name.clone());
+                visited.push(crate_name.clone());
             }
         }
 
@@ -146,7 +146,7 @@ impl Context {
                 for dependent in dependents {
                     if !visited.contains(dependent) {
                         stack.push(dependent.clone());
-                        visited.insert(dependent.clone());
+                        visited.push(dependent.clone());
                     }
                 }
             }
