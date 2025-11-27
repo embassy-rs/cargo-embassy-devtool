@@ -65,19 +65,19 @@ fn list_crates(root: &PathBuf) -> Result<BTreeMap<CrateId, Crate>> {
                 let mut build_dependencies = Vec::new();
 
                 for (k, _) in parsed.dependencies {
-                    if k.starts_with("embassy-") {
+                    if k.starts_with("embassy-") || k.starts_with("cyw43") {
                         dependencies.push(k);
                     }
                 }
 
                 for (k, _) in parsed.dev_dependencies {
-                    if k.starts_with("embassy-") {
+                    if k.starts_with("embassy-") || k.starts_with("cyw43") {
                         dev_dependencies.push(k);
                     }
                 }
 
                 for (k, _) in parsed.build_dependencies {
-                    if k.starts_with("embassy-") {
+                    if k.starts_with("embassy-") || k.starts_with("cyw43") {
                         build_dependencies.push(k);
                     }
                 }
