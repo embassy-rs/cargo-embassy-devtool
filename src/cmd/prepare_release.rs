@@ -36,7 +36,7 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     let mut to_bump = std::collections::HashMap::new();
     for crate_name in crate_names {
         if !to_bump.contains_key(crate_name) {
-            let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+            let deps = ctx.recursive_dependents(std::iter::once(crate_name.as_str()));
             for dep_crate_name in deps {
                 let c = ctx.crates.get(&dep_crate_name).unwrap();
                 if c.publish && !to_bump.contains_key(&dep_crate_name) {
@@ -63,7 +63,7 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     for name in keys {
         let (rtype, _) = to_bump[&name];
         if rtype == ReleaseType::Minor {
-            let deps = ctx.recursive_dependencies(std::iter::once(name.as_str()));
+            let deps = ctx.recursive_dependents(std::iter::once(name.as_str()));
             for dep_crate_name in deps {
                 if let Some((ReleaseType::Patch, newver)) = to_bump.get(&dep_crate_name) {
                     let v = semver::Version::parse(newver)?;
@@ -94,7 +94,7 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     println!();
     let mut processed = HashSet::new();
     for crate_name in crate_names {
-        let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+        let deps = ctx.recursive_dependents(std::iter::once(crate_name.as_str()));
         for dep_crate_name in deps {
             let c = ctx.crates.get(&dep_crate_name).unwrap();
             if c.publish && !processed.contains(&dep_crate_name) {
@@ -107,7 +107,7 @@ pub fn run(ctx: &mut Context, args: Args) -> Result<()> {
     println!();
     println!("# Run these commands to publish the crate and dependents:");
     for crate_name in crate_names {
-        let deps = ctx.recursive_dependencies(std::iter::once(crate_name.as_str()));
+        let deps = ctx.recursive_dependents(std::iter::once(crate_name.as_str()));
         for dep_crate_name in deps {
             if !processed.contains(&dep_crate_name) {
                 processed.insert(dep_crate_name.clone());

@@ -11,9 +11,11 @@ pub fn bump(ctx: &mut Context, name: &CrateId, new_version: &str) -> Result<(), 
     c.version = new_version.to_string();
 
     update_crate(c, new_version)?;
-    for dep in &ctx.reverse_deps[name] {
-        println!("Updating {name}-{old_version} -> {new_version} for {dep}");
-        update_deps(&ctx.crates[dep], name, new_version)?;
+    if let Some(reverse_deps) = ctx.reverse_deps.get(name) {
+        for dep in reverse_deps {
+            println!("Updating {name}-{old_version} -> {new_version} for {dep}");
+            update_deps(&ctx.crates[dep], name, new_version)?;
+        }
     }
 
     let c = ctx.crates.get(name).unwrap();
