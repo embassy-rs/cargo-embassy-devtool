@@ -43,8 +43,11 @@ where
     let output = if args[0] == "batch" {
         let mut subargs = args.split(|x| *x == "---");
 
+        let stdin_arg = "--stdin".to_string();
+        let args: Vec<_> = subargs.next().unwrap().iter().chain([&stdin_arg]).collect();
+
         command
-            .args(["batch", "--stdin"])
+            .args(&args)
             .current_dir(cwd)
             .envs(envs)
             .stdout(if capture {
@@ -68,7 +71,6 @@ where
         {
             let mut stdin = child.stdin.take().unwrap();
 
-            subargs.next();
             for args in subargs {
                 writeln!(stdin, "{}", shell_words::join(args)).unwrap();
             }
