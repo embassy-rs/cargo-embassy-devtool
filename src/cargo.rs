@@ -69,7 +69,7 @@ where
 
         subargs.next();
         for args in subargs {
-            writeln!(stdin, "{}", args.join(" ")).unwrap();
+            writeln!(stdin, "{}", shell_words::join(args)).unwrap();
         }
         writeln!(stdin, "EOF").unwrap();
 
