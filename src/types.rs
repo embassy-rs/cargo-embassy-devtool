@@ -125,7 +125,7 @@ impl Context {
         visited.into_iter()
     }
 
-    pub fn recursive_dependents<'a>(
+    pub fn recursive_dependents(
         &self,
         crates: impl Iterator<Item = impl AsRef<str>>,
     ) -> impl Iterator<Item = CrateId> {
