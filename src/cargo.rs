@@ -1,6 +1,7 @@
 //! Tools for working with Cargo.
 
 use std::ffi::OsStr;
+use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -39,27 +40,66 @@ where
 
     let mut command = Command::new(get_cargo());
 
-    command
-        .args(args)
-        .current_dir(cwd)
-        .envs(envs)
-        .stdout(if capture {
-            Stdio::piped()
-        } else {
-            Stdio::inherit()
-        })
-        .stderr(if capture {
-            Stdio::piped()
-        } else {
-            Stdio::inherit()
-        });
+    let output = if args[0] == "batch" {
+        let mut subargs = args.split(|x| *x == "---");
 
-    if args.iter().any(|a| a.starts_with('+')) {
-        // Make sure the right cargo runs
-        command.env_remove("CARGO");
-    }
+        command
+            .args(["batch", "--stdin"])
+            .current_dir(cwd)
+            .envs(envs)
+            .stdout(if capture {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            })
+            .stderr(if capture {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            })
+            .stdin(Stdio::piped());
 
-    let output = command.stdin(Stdio::inherit()).output()?;
+        if args.iter().any(|a| a.starts_with('+')) {
+            // Make sure the right cargo runs
+            command.env_remove("CARGO");
+        }
+
+        let mut child = command.spawn()?;
+        {
+            let mut stdin = child.stdin.take().unwrap();
+
+            subargs.next();
+            for args in subargs {
+                writeln!(stdin, "{}", shell_words::join(args)).unwrap();
+            }
+
+            // drop stdin to close the pipe
+        }
+
+        child.wait_with_output()?
+    } else {
+        command
+            .args(args)
+            .current_dir(cwd)
+            .envs(envs)
+            .stdout(if capture {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            })
+            .stderr(if capture {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            });
+
+        if args.iter().any(|a| a.starts_with('+')) {
+            // Make sure the right cargo runs
+            command.env_remove("CARGO");
+        }
+
+        command.stdin(Stdio::inherit()).output()?
+    };
 
     // Make sure that we return an appropriate exit code here, as Github Actions
     // requires this in order to function correctly:

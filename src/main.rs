@@ -138,7 +138,7 @@ fn load_context() -> Result<Context> {
         for dep_name in krate.all_dependencies() {
             reverse_deps
                 .entry(dep_name.clone())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(crate_name.clone());
         }
     }

@@ -21,3 +21,4 @@ crates-index = "3.11.0"
 tar = "0.4"
 reqwest = { version = "0.12", features = ["blocking"] }
 cargo-manifest = "0.19.1"
+shell-words = "1.1.1"
