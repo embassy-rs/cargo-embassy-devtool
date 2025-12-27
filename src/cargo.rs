@@ -65,13 +65,16 @@ where
         }
 
         let mut child = command.spawn()?;
-        let mut stdin = child.stdin.take().unwrap();
+        {
+            let mut stdin = child.stdin.take().unwrap();
 
-        subargs.next();
-        for args in subargs {
-            writeln!(stdin, "{}", shell_words::join(args)).unwrap();
+            subargs.next();
+            for args in subargs {
+                writeln!(stdin, "{}", shell_words::join(args)).unwrap();
+            }
+
+            // drop stdin to close the pipe
         }
-        writeln!(stdin, "EOF").unwrap();
 
         child.wait_with_output()?
     } else {
