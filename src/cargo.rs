@@ -44,12 +44,7 @@ where
         let mut subargs = args.split(|x| *x == "---");
 
         let stdin_arg = "--stdin".to_string();
-        let args: Vec<_> = subargs
-            .next()
-            .unwrap()
-            .into_iter()
-            .chain([&stdin_arg])
-            .collect();
+        let args: Vec<_> = subargs.next().unwrap().iter().chain([&stdin_arg]).collect();
 
         command
             .args(&args)
