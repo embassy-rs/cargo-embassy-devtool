@@ -183,7 +183,7 @@ fn build_doc_json(krate: &Crate, config: &BuildConfig) -> Result<PathBuf, anyhow
     // always use `specific nightly` toolchain so we don't have to deal with potentially
     // different versions of the doc-json
     let mut cargo_args = vec![
-        "+nightly-2025-06-29".to_string(),
+        "+nightly-2025-12-11".to_string(),
         "rustdoc".to_string(),
         "--lib".to_string(),
         "--output-format=json".to_string(),
