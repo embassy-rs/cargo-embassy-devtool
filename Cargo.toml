@@ -12,7 +12,7 @@ serde = { version = "1.0.198", features = ["derive"] }
 regex = "1.10.4"
 anyhow = "1"
 semver = "1.0.26"
-cargo-semver-checks = "0.45.0"
+cargo-semver-checks = { git = "https://github.com/obi1kenobi/cargo-semver-checks.git", rev = "6148f0da00dbc6d3396dc7dfacbfd562f22bbdb0" }
 log = "0.4"
 simple_logger = "5.0.0"
 temp-file = "0.1.9"
