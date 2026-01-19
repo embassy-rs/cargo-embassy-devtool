@@ -35,10 +35,6 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
                 println!("⚠️  Skipping non-documentable crate: {}", crate_name);
                 continue;
             }
-            if !crate_info.publish {
-                println!("⚠️  Skipping non-publishable crate: {}", crate_name);
-                continue;
-            }
             crates.push(crate_name.clone());
         }
         crates
