@@ -46,6 +46,13 @@ pub fn minimum_update(root: PathBuf, krate: &Crate) -> Result<ReleaseType, anyho
 
     let mut min_required_update = ReleaseType::Patch;
     for config in krate.configs.iter() {
+        if let Some(group) = &config.group {
+            // TODO: Not supported for rustdoc build
+            if group == "xtensa" {
+                log::info!("Skipping xtensa docbuild");
+                continue;
+            }
+        }
         //        std::fs::remove_dir_all(baseline_path.join("target"))?;
         let baseline_path = build_doc_json(&baseline_krate, config)?;
         let current_path = build_doc_json(krate, config)?;
