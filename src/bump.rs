@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::types::{Context, *};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use toml_edit::{DocumentMut, Item, Value};
 
 pub fn bump(ctx: &mut Context, name: &CrateId, new_version: &str) -> Result<(), anyhow::Error> {
@@ -43,23 +43,23 @@ fn update_deps(to_update: &Crate, dep: &CrateId, new_version: &str) -> Result<()
     let mut doc: DocumentMut = content.parse()?;
     let mut changed = false;
     for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
-        if let Some(Item::Table(dep_table)) = doc.get_mut(section) {
-            if let Some(item) = dep_table.get_mut(dep) {
-                match item {
-                    // e.g., foo = "0.1.0"
-                    Item::Value(Value::String(_)) => {
-                        *item = Item::Value(Value::from(new_version));
+        if let Some(Item::Table(dep_table)) = doc.get_mut(section)
+            && let Some(item) = dep_table.get_mut(dep)
+        {
+            match item {
+                // e.g., foo = "0.1.0"
+                Item::Value(Value::String(_)) => {
+                    *item = Item::Value(Value::from(new_version));
+                    changed = true;
+                }
+                // e.g., foo = { version = "...", ... }
+                Item::Value(Value::InlineTable(inline)) => {
+                    if inline.contains_key("version") {
+                        inline["version"] = Value::from(new_version);
                         changed = true;
                     }
-                    // e.g., foo = { version = "...", ... }
-                    Item::Value(Value::InlineTable(inline)) => {
-                        if inline.contains_key("version") {
-                            inline["version"] = Value::from(new_version);
-                            changed = true;
-                        }
-                    }
-                    _ => {} // Leave unusual formats untouched
                 }
+                _ => {} // Leave unusual formats untouched
             }
         }
     }

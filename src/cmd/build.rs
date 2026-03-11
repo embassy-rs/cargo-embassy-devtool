@@ -1,5 +1,5 @@
 use crate::types::Context;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 
 /// Build
@@ -107,15 +107,14 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
         }
 
         let mut final_env = batch_config.env.clone();
-        if let Some(config_rustflags) = final_env.get("RUSTFLAGS") {
-            if let Ok(existing_rustflags) = std::env::var("RUSTFLAGS") {
-                if !existing_rustflags.is_empty() {
-                    final_env.insert(
-                        "RUSTFLAGS".to_string(),
-                        format!("{} {}", existing_rustflags, config_rustflags),
-                    );
-                }
-            }
+        if let Some(config_rustflags) = final_env.get("RUSTFLAGS")
+            && let Ok(existing_rustflags) = std::env::var("RUSTFLAGS")
+            && !existing_rustflags.is_empty()
+        {
+            final_env.insert(
+                "RUSTFLAGS".to_string(),
+                format!("{} {}", existing_rustflags, config_rustflags),
+            );
         }
 
         crate::cargo::run_with_env(&batch_args, &ctx.root, &final_env, false)?;

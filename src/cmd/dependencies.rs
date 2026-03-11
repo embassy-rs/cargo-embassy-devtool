@@ -15,10 +15,10 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
 
         let deps = ctx.recursive_dependencies(std::iter::once(args.crate_name.as_str()));
         for dep_name in deps {
-            if dep_name != args.crate_name {
-                if let Some(dep_crate) = ctx.crates.get(&dep_name) {
-                    println!("|- {}-{}", dep_name, dep_crate.version);
-                }
+            if dep_name != args.crate_name
+                && let Some(dep_crate) = ctx.crates.get(&dep_name)
+            {
+                println!("|- {}-{}", dep_name, dep_crate.version);
             }
         }
     } else {

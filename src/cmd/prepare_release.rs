@@ -1,7 +1,7 @@
 use crate::bump::bump;
 use crate::cmd::semver_check;
 use crate::types::{Context, Crate};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use cargo_semver_checks::ReleaseType;
 use std::collections::HashSet;
 use std::path::Path;
