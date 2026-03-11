@@ -1,5 +1,5 @@
 use crate::types::Context;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::collections::HashSet;
 use toml_edit::{DocumentMut, Item};
 
@@ -25,10 +25,10 @@ pub fn run(ctx: &Context, _args: Args) -> Result<()> {
         }
 
         // Check features - only for publishable crates
-        if krate.publish {
-            if let Err(e) = check_features(&doc) {
-                errors.push(format!("{}: {}", crate_name, e));
-            }
+        if krate.publish
+            && let Err(e) = check_features(&doc)
+        {
+            errors.push(format!("{}: {}", crate_name, e));
         }
     }
 
@@ -153,10 +153,10 @@ fn check_features(doc: &DocumentMut) -> Result<()> {
         for (_feature_name, feature_value) in features.iter() {
             if let Some(feature_list) = feature_value.as_array() {
                 for item in feature_list.iter() {
-                    if let Some(item_str) = item.as_str() {
-                        if let Some(dep_name) = item_str.strip_prefix("dep:") {
-                            referenced_deps.insert(dep_name.to_string());
-                        }
+                    if let Some(item_str) = item.as_str()
+                        && let Some(dep_name) = item_str.strip_prefix("dep:")
+                    {
+                        referenced_deps.insert(dep_name.to_string());
                     }
                 }
             }

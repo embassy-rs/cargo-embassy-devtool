@@ -1,5 +1,5 @@
 use crate::types::Context;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use cargo_semver_checks::{Check, GlobalConfig, ReleaseType, Rustdoc};
 use flate2::read::GzDecoder;
 use std::collections::HashSet;

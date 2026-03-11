@@ -332,8 +332,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-semver-checks"
-version = "0.46.0"
-source = "git+https://github.com/obi1kenobi/cargo-semver-checks.git?rev=79b9ec6d8569c5bcf320c09930063d99b93cd99c#79b9ec6d8569c5bcf320c09930063d99b93cd99c"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86a42dcadb99f817d5383490a45efa41c104da5c2065f2b13cf5e6777ddda6be"
 dependencies = [
  "anstream",
  "anstyle",
@@ -3230,7 +3231,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

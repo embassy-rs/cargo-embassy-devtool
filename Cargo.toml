@@ -1,7 +1,7 @@
 [package]
 name = "cargo-embassy-devtool"
 version = "0.1.2"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.60", features = ["derive"] }
@@ -12,7 +12,6 @@ serde = { version = "1.0.228", features = ["derive"] }
 regex = "1.12.3"
 anyhow = "1"
 semver = "1.0.27"
-cargo-semver-checks = { git = "https://github.com/obi1kenobi/cargo-semver-checks.git", rev = "79b9ec6d8569c5bcf320c09930063d99b93cd99c"}
 log = "0.4"
 simple_logger = "5.2.0"
 temp-file = "0.2.0"
@@ -22,3 +21,4 @@ tar = "0.4"
 reqwest = { version = "0.13", features = ["blocking"] }
 cargo-manifest = "0.20.0"
 shell-words = "1.1.1"
+cargo-semver-checks = "0.47.0"
