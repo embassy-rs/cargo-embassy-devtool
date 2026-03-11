@@ -13,6 +13,10 @@ pub struct Args {
     /// Output directory for generated documentation
     #[clap(short, long)]
     pub output: PathBuf,
+
+    /// Whether to cleanup the temporary directory after building
+    #[clap(long)]
+    pub cleanup: bool,
 }
 
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
@@ -66,6 +70,10 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
             .arg(input_path)
             .arg("-o")
             .arg(&output_path);
+
+        if args.cleanup {
+            cmd.arg("--cleanup");
+        }
 
         // Add --output-static for the first docserver invocation
         if is_first_invocation {
