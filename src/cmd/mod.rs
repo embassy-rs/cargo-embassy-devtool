@@ -1,5 +1,6 @@
 pub mod build;
 pub mod bump;
+pub mod check;
 pub mod check_crlf;
 pub mod check_manifest;
 pub mod dependencies;
