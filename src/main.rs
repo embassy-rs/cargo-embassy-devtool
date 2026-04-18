@@ -28,6 +28,7 @@ enum Command {
     Dependents(cmd::dependents::Args),
     Bump(cmd::bump::Args),
     Build(cmd::build::Args),
+    Check(cmd::build::Args),
     SemverCheck(cmd::semver_check::Args),
     PrepareRelease(cmd::prepare_release::Args),
     CheckManifest(cmd::check_manifest::Args),
@@ -180,6 +181,9 @@ fn main() -> Result<()> {
         }
         Command::Build(args) => {
             cmd::build::run(&ctx, args)?;
+        }
+        Command::Check(args) => {
+            cmd::check::run(&ctx, args)?;
         }
         Command::Bump(args) => {
             cmd::bump::run(&mut ctx, args)?;

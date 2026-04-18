@@ -22,7 +22,17 @@ pub struct BuildConfigBatch {
     pub build_std: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum BuildCommand {
+    Build,
+    Check,
+}
+
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
+    run_build_command(ctx, args, BuildCommand::Build)
+}
+
+pub fn run_build_command(ctx: &Context, args: Args, build_command: BuildCommand) -> Result<()> {
     let crate_name = args.crate_name.as_deref();
     let group = args.group.as_deref();
 
@@ -86,11 +96,17 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
         }
 
         for (manifest_path, config) in configs {
-            let mut args = vec![
-                "build".to_string(),
-                "--release".to_string(),
-                format!("--manifest-path={}", manifest_path),
-            ];
+            let mut args = match build_command {
+                BuildCommand::Build => vec![
+                    "build".to_string(),
+                    "--release".to_string(),
+                    format!("--manifest-path={}", manifest_path),
+                ],
+                BuildCommand::Check => vec![
+                    "check".to_string(),
+                    format!("--manifest-path={}", manifest_path),
+                ],
+            };
 
             if let Some(ref target) = config.target {
                 args.push(format!("--target={}", target));
@@ -98,7 +114,9 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
             if !config.features.is_empty() {
                 args.push(format!("--features={}", config.features.join(",")));
             }
-            if let Some(ref artifact_dir) = config.artifact_dir {
+            if matches!(build_command, BuildCommand::Build)
+                && let Some(ref artifact_dir) = config.artifact_dir
+            {
                 args.push(format!("--artifact-dir={}", artifact_dir));
             }
 
