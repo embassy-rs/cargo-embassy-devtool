@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, crate_version};
 use simple_logger::SimpleLogger;
 use types::{Context, *};
 
@@ -165,6 +165,8 @@ enum Cargo {
 }
 
 fn main() -> Result<()> {
+    println!("embassy-devtool version {}", crate_version!());
+
     SimpleLogger::new().init().unwrap();
     let Cargo::EmbassyDevtool(args) = Cargo::parse();
     let mut ctx = load_context()?;
