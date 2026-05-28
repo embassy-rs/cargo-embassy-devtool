@@ -11,6 +11,9 @@ A specialized Cargo workspace tool for managing intra-repository Rust crate depe
 
 ## Commands
 
+### `fmt`
+Formats the crate.
+
 ### `list`
 Display all crates and their direct dependencies in topological order.
 

@@ -23,6 +23,7 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Fmt(cmd::fmt::Args),
     List(cmd::list::Args),
     Dependencies(cmd::dependencies::Args),
     Dependents(cmd::dependents::Args),
@@ -172,41 +173,19 @@ fn main() -> Result<()> {
     let mut ctx = load_context()?;
 
     match args.command {
-        Command::List(args) => {
-            cmd::list::run(&ctx, args)?;
-        }
-        Command::Dependencies(args) => {
-            cmd::dependencies::run(&ctx, args)?;
-        }
-        Command::Dependents(args) => {
-            cmd::dependents::run(&ctx, args)?;
-        }
-        Command::Build(args) => {
-            cmd::build::run(&ctx, args)?;
-        }
-        Command::Check(args) => {
-            cmd::check::run(&ctx, args)?;
-        }
-        Command::Bump(args) => {
-            cmd::bump::run(&mut ctx, args)?;
-        }
-        Command::SemverCheck(args) => {
-            cmd::semver_check::run(&ctx, args)?;
-        }
-        Command::PrepareRelease(args) => {
-            cmd::prepare_release::run(&mut ctx, args)?;
-        }
-        Command::CheckManifest(args) => {
-            cmd::check_manifest::run(&ctx, args)?;
-        }
-        Command::CheckCrlf(args) => {
-            cmd::check_crlf::run(&ctx, args)?;
-        }
-        Command::Doc(args) => {
-            cmd::doc::run(&ctx, args)?;
-        }
+        Command::List(args) => cmd::list::run(&ctx, args),
+        Command::Fmt(args) => cmd::fmt::run(&ctx, args),
+        Command::Dependencies(args) => cmd::dependencies::run(&ctx, args),
+        Command::Dependents(args) => cmd::dependents::run(&ctx, args),
+        Command::Build(args) => cmd::build::run(&ctx, args),
+        Command::Check(args) => cmd::check::run(&ctx, args),
+        Command::Bump(args) => cmd::bump::run(&mut ctx, args),
+        Command::SemverCheck(args) => cmd::semver_check::run(&ctx, args),
+        Command::PrepareRelease(args) => cmd::prepare_release::run(&mut ctx, args),
+        Command::CheckManifest(args) => cmd::check_manifest::run(&ctx, args),
+        Command::CheckCrlf(args) => cmd::check_crlf::run(&ctx, args),
+        Command::Doc(args) => cmd::doc::run(&ctx, args),
     }
-    Ok(())
 }
 
 /// Make the path "Windows"-safe

@@ -4,21 +4,22 @@ version = "0.1.3"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
 walkdir = "2.5.0"
-toml = "1.0.6"
-toml_edit = { version = "0.25.4", features = ["serde"] }
+toml = "1.1.2"
+toml_edit = { version = "0.25.12", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 regex = "1.12.3"
 anyhow = "1"
-semver = "1.0.27"
+semver = "1.0.28"
 log = "0.4"
 simple_logger = "5.2.0"
 temp-file = "0.2.0"
 flate2 = "1.1.9"
-crates-index = "3.13.0"
+crates-index = "3.14.0"
 tar = "0.4"
 reqwest = { version = "0.13", features = ["blocking"] }
 cargo-manifest = "0.20.0"
 shell-words = "1.1.1"
 cargo-semver-checks = "0.47.0"
+itertools = "0.14.0"
