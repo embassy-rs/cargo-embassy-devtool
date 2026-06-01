@@ -4,6 +4,22 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+pub struct ParsedToolchain {
+    pub toolchain: Toolchain,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Toolchain {
+    pub channel: String,
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub components: Vec<String>,
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub targets: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ParsedCrate {
     pub package: ParsedPackage,
     #[serde(default)]
