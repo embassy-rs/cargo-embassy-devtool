@@ -11,8 +11,10 @@ pub struct ParsedToolchain {
 #[derive(Debug, Deserialize)]
 pub struct Toolchain {
     pub channel: String,
+    #[allow(dead_code)]
     #[serde(default)]
     pub components: Vec<String>,
+    #[allow(dead_code)]
     #[serde(default)]
     pub targets: Vec<String>,
 }
