@@ -1,8 +1,9 @@
 use std::{fs, process::Command};
 
-use crate::types::Context;
+use crate::types::{Context, ParsedToolchain};
 use anyhow::{Result, anyhow};
 use itertools::Itertools;
+use ondrop::OnDrop;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, clap::Args)]
@@ -10,6 +11,8 @@ use walkdir::{DirEntry, WalkDir};
 pub struct Args;
 
 fn checkout_file(file: &str) -> Result<()> {
+    let _ = fs::remove_file(file);
+
     Command::new("git")
         .arg("checkout")
         .arg("--")
@@ -41,6 +44,16 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
     let rust_toolchain = fs::read("rust-toolchain.toml").ok();
     let rust_toolchain_nightly = fs::read("rust-toolchain-nightly.toml").ok();
 
+    let _guard = OnDrop::new(|| {
+        if let Some(rust_toolchain) = rust_toolchain {
+            let _ = fs::write("rust-toolchain.toml", rust_toolchain);
+        }
+
+        if let Some(rust_toolchain) = rust_toolchain_nightly {
+            let _ = fs::write("rust-toolchain-nightly.toml", rust_toolchain);
+        }
+    });
+
     // try to check out the rust toolchain nightly file, and rename it to rust-toolchain.toml
     let Some(toolchain_file) = ["rust-toolchain-nightly.toml", "rust-toolchain.toml"]
         .iter()
@@ -50,7 +63,27 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
         return Err(anyhow!("no toolchain file could be checked out"));
     };
 
-    fs::write("rust-toolchain.toml", fs::read(toolchain_file)?)?;
+    let parsed: ParsedToolchain = toml::from_slice(&fs::read(toolchain_file)?)?;
+
+    let output = Command::new("rustup")
+        .arg("which")
+        .arg("rustfmt")
+        .arg("--toolchain")
+        .arg(parsed.toolchain.channel)
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "{}",
+            String::from_utf8_lossy(&output.stderr.to_vec())
+        ));
+    }
+
+    let rustfmt = output.stdout.to_vec();
+    let rustfmt = String::from_utf8_lossy(&rustfmt);
+    let rustfmt = rustfmt.into_owned().trim().to_string();
+
+    println!("using rustfmt: {}", rustfmt);
 
     let chunk_size = 80;
     for chunk in &WalkDir::new(".")
@@ -61,7 +94,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
         .map(|e| e.into_path())
         .chunks(chunk_size)
     {
-        let output = Command::new("rustfmt")
+        let output = Command::new(&rustfmt)
             .arg("--unstable-features")
             .arg("--edition")
             .arg("2024")
@@ -74,14 +107,6 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
                 String::from_utf8_lossy(&output.stderr.to_vec())
             ));
         }
-    }
-
-    if let Some(rust_toolchain) = rust_toolchain {
-        fs::write("rust-toolchain.toml", rust_toolchain)?;
-    }
-
-    if let Some(rust_toolchain) = rust_toolchain_nightly {
-        fs::write("rust-toolchain-nightly.toml", rust_toolchain)?;
     }
 
     Ok(())
