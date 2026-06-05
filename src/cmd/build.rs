@@ -14,6 +14,9 @@ pub struct Args {
     /// Also build all dependents of the specified crate
     #[arg(long)]
     pub dependents: bool,
+    /// Force incremental compilation
+    #[arg(long)]
+    pub force_incremental: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -133,6 +136,10 @@ pub fn run_build_command(ctx: &Context, args: Args, build_command: BuildCommand)
                 "RUSTFLAGS".to_string(),
                 format!("{} {}", existing_rustflags, config_rustflags),
             );
+        }
+
+        if args.force_incremental {
+            final_env.insert("CARGO_INCREMENTAL".to_string(), "1".to_string());
         }
 
         crate::cargo::run_with_env(&batch_args, &ctx.root, &final_env, false)?;
