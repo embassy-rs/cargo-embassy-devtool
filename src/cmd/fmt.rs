@@ -7,8 +7,12 @@ use rayon::prelude::*;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, clap::Args)]
-/// All crates and their direct dependencies
-pub struct Args;
+/// Format all files in a folder. Defaults to cwd.
+pub struct Args {
+    /// The dir to format
+    #[clap(long, default_value = ".")]
+    pub root: String,
+}
 
 fn checkout_file(file: &str) -> Result<Vec<u8>> {
     Ok(Command::new("git")
@@ -26,7 +30,7 @@ fn not_target(entry: &DirEntry) -> bool {
     entry.file_name().to_string_lossy() != "target"
 }
 
-pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
+pub fn run(_ctx: &Context, args: Args) -> Result<()> {
     // if we're not in the root, exit
     if !fs::exists(".git").unwrap_or_default() {
         return Err(anyhow!("not in root of repository"));
@@ -62,7 +66,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
 
     let rustfmt = str::from_utf8(&output.stdout)?.trim();
 
-    let paths: Vec<_> = WalkDir::new(".")
+    let paths: Vec<_> = WalkDir::new(args.root)
         .into_iter()
         .filter_entry(not_target)
         .filter_map(Result::ok)
