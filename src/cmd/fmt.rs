@@ -39,6 +39,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
     let Some(toolchain_file) = ["rust-toolchain-nightly.toml", "rust-toolchain.toml"]
         .iter()
         .filter_map(|file| checkout_file(file).ok())
+        .filter(|file| str::from_utf8(file).is_ok_and(|file| !file.trim().is_empty()))
         .next()
     else {
         return Err(anyhow!("no toolchain file could be checked out"));
