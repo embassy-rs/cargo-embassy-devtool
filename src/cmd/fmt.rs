@@ -60,9 +60,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
         ));
     }
 
-    let rustfmt = output.stdout.to_vec();
-    let rustfmt = String::from_utf8_lossy(&rustfmt);
-    let rustfmt = rustfmt.into_owned().trim().to_string();
+    let rustfmt = str::from_utf8(&output.stdout)?.trim();
 
     let paths: Vec<_> = WalkDir::new(".")
         .into_iter()
