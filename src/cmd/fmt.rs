@@ -2,6 +2,7 @@ use std::{fs, process::Command};
 
 use crate::types::{Context, ParsedRustfmt, ParsedToolchain};
 use anyhow::{Result, anyhow};
+use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use walkdir::{DirEntry, WalkDir};
 
@@ -71,6 +72,14 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
         .map(|e| e.into_path())
         .collect();
 
+    let style = ProgressStyle::with_template("\x1b[96m{msg}\x1b[0m [{bar:30}] {pos}/{len}")
+        .unwrap()
+        .progress_chars("=> ");
+
+    let bar = ProgressBar::new(paths.len() as u64)
+        .with_style(style)
+        .with_message("Formatting");
+
     paths
         .par_chunks(80)
         .map(|chunk| {
@@ -81,6 +90,8 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
                 .args(chunk)
                 .output()?;
 
+            bar.inc(chunk.len() as u64);
+
             if !output.status.success() {
                 Err(anyhow!(
                     "{}",
@@ -90,5 +101,9 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
                 Ok(())
             }
         })
-        .collect::<anyhow::Result<_>>()
+        .collect::<anyhow::Result<()>>()?;
+
+    bar.finish();
+
+    Ok(())
 }
