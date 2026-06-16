@@ -81,7 +81,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
     paths
         .par_chunks(80)
         .map(|chunk| {
-            let output = Command::new(&rustfmt)
+            let output = Command::new(rustfmt)
                 .arg("--unstable-features")
                 .arg("--edition")
                 .arg(&edition)
