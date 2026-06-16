@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use crate::types::{Context, ParsedToolchain};
+use crate::types::{Context, ParsedRustfmt, ParsedToolchain};
 use anyhow::{Result, anyhow};
 use rayon::prelude::*;
 use walkdir::{DirEntry, WalkDir};
@@ -30,6 +30,9 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
     if !fs::exists(".git").unwrap_or_default() {
         return Err(anyhow!("not in root of repository"));
     }
+
+    let parsed: ParsedRustfmt = toml::from_slice(&checkout_file("rustfmt.toml")?)?;
+    let edition = parsed.edition;
 
     // try to check out the rust toolchain nightly file, and rename it to rust-toolchain.toml
     let Some(toolchain_file) = ["rust-toolchain-nightly.toml", "rust-toolchain.toml"]
@@ -74,7 +77,7 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
             let output = Command::new(&rustfmt)
                 .arg("--unstable-features")
                 .arg("--edition")
-                .arg("2024")
+                .arg(&edition)
                 .args(chunk)
                 .output()?;
 

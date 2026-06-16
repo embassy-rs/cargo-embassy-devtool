@@ -4,6 +4,11 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+pub struct ParsedRustfmt {
+    pub edition: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ParsedToolchain {
     pub toolchain: Toolchain,
 }
