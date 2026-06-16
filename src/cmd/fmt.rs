@@ -38,7 +38,8 @@ pub fn run(_ctx: &Context, _args: Args) -> Result<()> {
     // try to check out the rust toolchain nightly file, and rename it to rust-toolchain.toml
     let Some(toolchain_file) = ["rust-toolchain-nightly.toml", "rust-toolchain.toml"]
         .iter()
-        .filter_map(|file| checkout_file(file).ok()).find(|file| str::from_utf8(file).is_ok_and(|file| !file.trim().is_empty()))
+        .filter_map(|file| checkout_file(file).ok())
+        .find(|file| str::from_utf8(file).is_ok_and(|file| !file.trim().is_empty()))
     else {
         return Err(anyhow!("no toolchain file could be checked out"));
     };
