@@ -12,6 +12,9 @@ pub struct Args {
     /// The dir to format
     #[clap(long, default_value = ".")]
     pub root: String,
+    /// Verbose mode
+    #[clap(long)]
+    pub verbose: bool,
 }
 
 fn checkout_file(file: &str) -> Result<Vec<u8>> {
@@ -54,7 +57,7 @@ pub fn run(_ctx: &Context, args: Args) -> Result<()> {
         .arg("which")
         .arg("rustfmt")
         .arg("--toolchain")
-        .arg(parsed.toolchain.channel)
+        .arg(&parsed.toolchain.channel)
         .output()?;
 
     if !output.status.success() {
@@ -65,6 +68,11 @@ pub fn run(_ctx: &Context, args: Args) -> Result<()> {
     }
 
     let rustfmt = str::from_utf8(&output.stdout)?.trim();
+
+    if args.verbose {
+        println!("channel: {}", &parsed.toolchain.channel);
+        println!("rustfmt: {}", rustfmt);
+    }
 
     let paths: Vec<_> = WalkDir::new(args.root)
         .into_iter()
