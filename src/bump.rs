@@ -53,11 +53,9 @@ fn update_deps(to_update: &Crate, dep: &CrateId, new_version: &str) -> Result<()
                     changed = true;
                 }
                 // e.g., foo = { version = "...", ... }
-                Item::Value(Value::InlineTable(inline)) => {
-                    if inline.contains_key("version") {
-                        inline["version"] = Value::from(new_version);
-                        changed = true;
-                    }
+                Item::Value(Value::InlineTable(inline)) if inline.contains_key("version") => {
+                    inline["version"] = Value::from(new_version);
+                    changed = true;
                 }
                 _ => {} // Leave unusual formats untouched
             }
