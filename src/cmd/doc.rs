@@ -17,6 +17,10 @@ pub struct Args {
     /// Whether to cleanup the temporary directory after building
     #[clap(long)]
     pub cleanup: bool,
+
+    /// Whether to monitor memory
+    #[clap(long)]
+    pub monitor: bool,
 }
 
 pub fn run(ctx: &Context, args: Args) -> Result<()> {
@@ -73,6 +77,10 @@ pub fn run(ctx: &Context, args: Args) -> Result<()> {
 
         if args.cleanup {
             cmd.arg("--cleanup");
+        }
+
+        if args.monitor {
+            cmd.arg("--monitor");
         }
 
         // Add --output-static for the first docserver invocation
