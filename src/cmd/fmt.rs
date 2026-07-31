@@ -70,7 +70,7 @@ pub fn run(_ctx: &Context, args: Args) -> Result<()> {
     let rustfmt = str::from_utf8(&output.stdout)?.trim();
 
     if args.verbose {
-        println!("channel: {}", &parsed.toolchain.channel);
+        println!("channel: {}", parsed.toolchain.channel);
         println!("rustfmt: {}", rustfmt);
     }
 
